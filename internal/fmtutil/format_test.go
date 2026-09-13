@@ -452,3 +452,37 @@ func TestFormatRateLimitSegmentText(t *testing.T) {
 		t.Errorf("FormatRateLimitSegment text mode = %q, want %q", got, want)
 	}
 }
+
+func TestPromptCacheSegment(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name  string
+		style IconStyle
+		cause string
+		want  string
+	}{
+		{"emoji with cause", StyleEmoji, "tools", "🧊 tools"},
+		{"emoji without cause", StyleEmoji, "", "🧊"},
+		{"text with cause", StyleText, "tools", "cache: tools"},
+		{"text without cause", StyleText, "", "cache: cold"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			if got := promptCacheSegmentStyled(tt.style, tt.cause); got != tt.want {
+				t.Errorf("promptCacheSegmentStyled(%v, %q) = %q, want %q", tt.style, tt.cause, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestPromptCacheSegmentUsesGlobalStyle(t *testing.T) {
+	useTextStyle(t)
+
+	if got := PromptCacheSegment("tools"); got != "cache: tools" {
+		t.Errorf("PromptCacheSegment under StyleText = %q, want %q", got, "cache: tools")
+	}
+}

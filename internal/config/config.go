@@ -114,6 +114,7 @@ type Segments struct {
 	Cost          string `mapstructure:"cost"`
 	Status        bool   `mapstructure:"status"`
 	Context       bool   `mapstructure:"context"`
+	PromptCache   bool   `mapstructure:"prompt_cache"`
 	Compactions   bool   `mapstructure:"compactions"`
 	Quota         bool   `mapstructure:"quota"`
 	PerModelQuota string `mapstructure:"per_model_quota"`
@@ -149,6 +150,7 @@ func Defaults() Config {
 			Cost:          CostAuto,
 			Status:        true,
 			Context:       true,
+			PromptCache:   true,
 			Compactions:   true,
 			Quota:         true,
 			PerModelQuota: PerModelAuto,
@@ -225,6 +227,7 @@ var knownKeys = map[string]bool{
 	"segments.cost":            true,
 	"segments.status":          true,
 	"segments.context":         true,
+	"segments.prompt_cache":    true,
 	"segments.compactions":     true,
 	"segments.quota":           true,
 	"segments.per_model_quota": true,
@@ -311,6 +314,7 @@ func validateSegments(seg *Segments, v *viper.Viper) []string {
 		{"segments.worktree", v.Get("segments.worktree")},
 		{"segments.status", v.Get("segments.status")},
 		{"segments.context", v.Get("segments.context")},
+		{"segments.prompt_cache", v.Get("segments.prompt_cache")},
 		{"segments.compactions", v.Get("segments.compactions")},
 		{"segments.quota", v.Get("segments.quota")},
 		{"segments.credits", v.Get("segments.credits")},
@@ -359,6 +363,7 @@ func setViperDefaults(viperInstance *viper.Viper) {
 	viperInstance.SetDefault("segments.cost", CostAuto)
 	viperInstance.SetDefault("segments.status", true)
 	viperInstance.SetDefault("segments.context", true)
+	viperInstance.SetDefault("segments.prompt_cache", true)
 	viperInstance.SetDefault("segments.compactions", true)
 	viperInstance.SetDefault("segments.quota", true)
 	viperInstance.SetDefault("segments.per_model_quota", PerModelAuto)

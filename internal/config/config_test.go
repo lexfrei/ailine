@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -30,6 +31,10 @@ func TestDefaults(t *testing.T) {
 
 	if !cfg.Segments.Context {
 		t.Error("expected context segment enabled by default")
+	}
+
+	if !cfg.Segments.PromptCache {
+		t.Error("expected prompt cache segment enabled by default")
 	}
 
 	if !cfg.Segments.Compactions {
@@ -204,6 +209,7 @@ worktree = false
 cost = false
 status = false
 context = false
+prompt_cache = false
 compactions = false
 quota = false
 credits = false
@@ -221,7 +227,7 @@ status_ttl = "30s"
 	cfg := Load(configPath)
 
 	if cfg.Segments.Model || cfg.Segments.Worktree || cfg.Segments.Cost != CostOff || cfg.Segments.Status ||
-		cfg.Segments.Context || cfg.Segments.Compactions || cfg.Segments.Quota ||
+		cfg.Segments.Context || cfg.Segments.PromptCache || cfg.Segments.Compactions || cfg.Segments.Quota ||
 		cfg.Segments.Credits {
 		t.Error("expected all segments disabled")
 	}
@@ -405,5 +411,36 @@ nested = true
 
 	if cfg.Cache.UsageTTL != defaults.Cache.UsageTTL {
 		t.Errorf("expected default usage TTL on unmarshal error, got %v", cfg.Cache.UsageTTL)
+	}
+}
+
+// A segment key rejects non-boolean values instead of silently reading as
+// enabled, the same as every other boolean segment.
+func TestValidatePromptCacheNotBoolean(t *testing.T) {
+	t.Parallel()
+
+	configPath := filepath.Join(t.TempDir(), "config.toml")
+	if err := os.WriteFile(configPath, []byte("[segments]\nprompt_cache = \"yes\"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	problems := Validate(configPath)
+
+	if len(problems) != 1 || !strings.Contains(problems[0], "segments.prompt_cache") {
+		t.Errorf("expected a prompt_cache type problem, got %v", problems)
+	}
+}
+
+// The key must be known to `validate`, or a correct config reports a typo.
+func TestValidatePromptCacheAccepted(t *testing.T) {
+	t.Parallel()
+
+	configPath := filepath.Join(t.TempDir(), "config.toml")
+	if err := os.WriteFile(configPath, []byte("[segments]\nprompt_cache = false\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	if problems := Validate(configPath); len(problems) != 0 {
+		t.Errorf("expected no problems, got %v", problems)
 	}
 }
