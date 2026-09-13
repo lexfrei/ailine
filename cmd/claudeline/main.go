@@ -43,6 +43,27 @@ type stdinPRInfo struct {
 	ReviewState string `json:"review_state"` //nolint:tagliatelle // External API format
 }
 
+// stdinMissCause names why the last prompt-cache miss happened. The harness may
+// report more than one cause for a single miss. Requires Claude Code 2.1.260.
+type stdinMissCause struct {
+	Causes []string `json:"causes"`
+}
+
+// stdinPromptCache carries the main conversation's prompt-cache state. Absent
+// before Claude Code 2.1.251 and, on every version, until the session's first
+// API response.
+type stdinPromptCache struct {
+	// Warm reports whether the cached prefix is still within its TTL. It is
+	// false whenever the last response reported no cache tokens, which includes
+	// the case where caching never happened at all — hence CachingObserved.
+	Warm bool `json:"warm"`
+	// CachingObserved reports whether any response this session carried cache
+	// tokens. False means prompt caching is off, or the provider or gateway
+	// does not report it.
+	CachingObserved bool            `json:"caching_observed"` //nolint:tagliatelle // External API format
+	LastMissCause   *stdinMissCause `json:"last_miss_cause"`  //nolint:tagliatelle // External API format
+}
+
 type stdinData struct {
 	Model struct {
 		ID          string `json:"id"`
@@ -68,7 +89,8 @@ type stdinData struct {
 	ContextWindow struct {
 		UsedPercentage float64 `json:"used_percentage"` //nolint:tagliatelle // External API format
 	} `json:"context_window"` //nolint:tagliatelle // External API format
-	TranscriptPath string `json:"transcript_path"` //nolint:tagliatelle // External API format
+	PromptCache    *stdinPromptCache `json:"prompt_cache"`    //nolint:tagliatelle // External API format
+	TranscriptPath string            `json:"transcript_path"` //nolint:tagliatelle // External API format
 	RateLimits     struct {
 		FiveHour *stdinRateWindow `json:"five_hour"` //nolint:tagliatelle // External API format
 		SevenDay *stdinRateWindow `json:"seven_day"` //nolint:tagliatelle // External API format
@@ -126,6 +148,7 @@ func newRootCmd() *cobra.Command {
 	flags.String("cost", "", "cost segment mode: auto (default), true, false")
 	flags.Bool("no-status", false, "disable status segment")
 	flags.Bool("no-context", false, "disable context segment")
+	flags.Bool("no-prompt-cache", false, "disable prompt cache segment")
 	flags.Bool("no-compactions", false, "disable compactions segment")
 	flags.Bool("no-quota", false, "disable quota segment")
 	flags.Bool("mac-insecure", false, "use macOS Keychain + Anthropic API for per-model quotas and credits")
@@ -260,6 +283,10 @@ func applyDisplayFlags(cmd *cobra.Command, cfg *config.Config) {
 
 	if flagSet(cmd, "no-context") {
 		cfg.Segments.Context = false
+	}
+
+	if flagSet(cmd, "no-prompt-cache") {
+		cfg.Segments.PromptCache = false
 	}
 
 	if flagSet(cmd, "no-compactions") {
@@ -546,6 +573,10 @@ func appendContextSegments(segments []string, data *stdinData, cfg *config.Confi
 		segments = append(segments, fmtutil.ContextSegment(data.ContextWindow.UsedPercentage))
 	}
 
+	if cfg.Segments.PromptCache && shouldShowPromptCache(data.PromptCache) {
+		segments = append(segments, fmtutil.PromptCacheSegment(promptCacheCause(data.PromptCache.LastMissCause)))
+	}
+
 	if cfg.Segments.Compactions {
 		if compactions := compaction.CountCompactions(data.TranscriptPath); compactions > 0 {
 			segments = append(segments, fmtutil.Part(strconv.Itoa(compactions), "🔄"))
@@ -553,6 +584,71 @@ func appendContextSegments(segments []string, data *stdinData, cfg *config.Confi
 	}
 
 	return segments
+}
+
+// shouldShowPromptCache reports whether the cold-cache marker is worth a
+// segment. A warm cache is the normal state and says nothing. Without
+// CachingObserved the provider never reported cache tokens at all, so Warm
+// stays false for the whole session and the marker would be permanent
+// furniture rather than a signal.
+func shouldShowPromptCache(cache *stdinPromptCache) bool {
+	return cache != nil && cache.CachingObserved && !cache.Warm
+}
+
+// promptCacheCauseLabels shortens the harness's cache-miss cause names to one
+// word each. A name absent here falls back to itself minus the "_changed"
+// suffix, so a cause introduced by a later harness still reads as something.
+var promptCacheCauseLabels = map[string]string{
+	"system_prompt_changed":      "prompt",
+	"tools_changed":              "tools",
+	"model_changed":              "model",
+	"fast_mode_changed":          "fast",
+	"cache_scope_or_ttl_changed": "scope",
+	"betas_changed":              "betas",
+	"effort_changed":             "effort",
+	"auto_mode_changed":          "auto",
+	"overage_changed":            "limits",
+	"extra_body_changed":         "request",
+	"defer_loading_changed":      "defer",
+	"messages_rewritten":         "history",
+	"ttl_expired_5m":             "ttl",
+	"ttl_expired_1h":             "ttl",
+	"likely_server_side":         "server",
+	// The harness reports "unknown" when it could not attribute the miss, and
+	// only ever as the sole cause. An empty label renders the bare icon, which
+	// is what "no cause identified" should look like.
+	"unknown": "",
+}
+
+// promptCacheCause renders the cause of the session's most recent miss in one
+// word, empty when none was identified.
+//
+// It usually describes an older event than the cold state: a miss rewrites the
+// cache, so the prefix reads warm again on the request that missed, and the
+// cache goes cold afterwards by idling past its TTL. A response carrying no
+// cache tokens at all is the other way in, and there the miss can be seconds
+// old.
+//
+// Several causes collapse to the first plus a "+", since the statusline has
+// room for one word.
+func promptCacheCause(cause *stdinMissCause) string {
+	if cause == nil || len(cause.Causes) == 0 {
+		return ""
+	}
+
+	label, ok := promptCacheCauseLabels[cause.Causes[0]]
+	if !ok {
+		label = strings.TrimSuffix(cause.Causes[0], "_changed")
+	}
+
+	// An empty label stands for "no cause identified", which nothing meaningful
+	// can be appended to. The harness reports its one unlabelled cause alone
+	// today, so this guards a future change rather than current behavior.
+	if len(cause.Causes) > 1 && label != "" {
+		label += "+"
+	}
+
+	return label
 }
 
 // shouldShowCost determines whether to display the cost segment.

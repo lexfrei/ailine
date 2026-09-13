@@ -96,6 +96,38 @@ func ContextSegment(pct float64) string {
 	return color + Part(fmt.Sprintf("%d%%", rounded), "🧠") + ansiReset
 }
 
+// coldCacheIcon marks a prompt cache that has gone cold.
+const coldCacheIcon = "🧊"
+
+// PromptCacheSegment renders the cold-prompt-cache marker, optionally naming
+// the cause of the last miss. An empty cause means the harness could not
+// identify one.
+//
+// The text theme has no icon to carry the meaning, so the segment names itself
+// there: a bare cause word standing between a percentage and a repo path would
+// read as nothing at all.
+func PromptCacheSegment(cause string) string {
+	return promptCacheSegmentStyled(Style, cause)
+}
+
+// promptCacheSegmentStyled is the pure core behind PromptCacheSegment, kept
+// separate so tests can exercise both styles without mutating the Style global.
+func promptCacheSegmentStyled(style IconStyle, cause string) string {
+	if style == StyleText {
+		if cause == "" {
+			return "cache: cold"
+		}
+
+		return "cache: " + cause
+	}
+
+	if cause == "" {
+		return coldCacheIcon
+	}
+
+	return PartStyled(style, cause, coldCacheIcon)
+}
+
 // ParseISOUTC parses an ISO-8601 timestamp to UTC time.
 func ParseISOUTC(raw string) (time.Time, error) {
 	raw = strings.TrimSpace(raw)

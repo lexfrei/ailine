@@ -1340,9 +1340,13 @@ usage_ttl = "30s"
 
 func TestApplyFlagOverrides(t *testing.T) {
 	cmd := newRootCmd()
-	cmd.SetArgs([]string{flagNoModel, flagNoWorktree, "--no-quota", "--no-credits", flagPerModelQuota, "--mac-insecure"})
+	args := []string{
+		flagNoModel, flagNoWorktree, "--no-quota", "--no-credits", flagPerModelQuota,
+		"--mac-insecure", "--no-prompt-cache",
+	}
+	cmd.SetArgs(args)
 
-	parseErr := cmd.ParseFlags([]string{flagNoModel, flagNoWorktree, "--no-quota", "--no-credits", flagPerModelQuota, "--mac-insecure"})
+	parseErr := cmd.ParseFlags(args)
 	if parseErr != nil {
 		t.Fatal(parseErr)
 	}
@@ -1364,6 +1368,10 @@ func TestApplyFlagOverrides(t *testing.T) {
 
 	if cfg.Segments.Credits {
 		t.Error("expected credits disabled by flag")
+	}
+
+	if cfg.Segments.PromptCache {
+		t.Error("expected prompt cache disabled by flag")
 	}
 
 	if cfg.Segments.PerModelQuota != config.PerModelAll {
@@ -1520,5 +1528,153 @@ func TestBuildStatuslineTextThemePlainNumber(t *testing.T) {
 
 	if !strings.Contains(got, "#19") {
 		t.Errorf("expected #19 in %q", got)
+	}
+}
+
+// promptCacheSegmentOf returns the statusline's prompt cache segment on its own,
+// empty when there is none. Matching the whole segment is what lets these cases
+// separate "🧊 tools" from "🧊 tools+" and from a bare "🧊" — a substring check
+// passes on all three.
+func promptCacheSegmentOf(t *testing.T, line string) string {
+	t.Helper()
+
+	for segment := range strings.SplitSeq(line, " | ") {
+		if strings.HasPrefix(segment, "🧊") {
+			return segment
+		}
+	}
+
+	return ""
+}
+
+// promptCacheInput builds a stdin payload carrying only the prompt_cache
+// object, which is all the segment reads.
+func promptCacheInput(t *testing.T, cache string) []byte {
+	t.Helper()
+
+	return []byte(`{"model":{"display_name":"Opus"},"prompt_cache":` + cache + `}`)
+}
+
+// A warm cache is the normal state and says nothing worth a segment, so the
+// statusline stays as it was before prompt_cache existed.
+func TestPromptCacheSegmentSilentWhenWarm(t *testing.T) {
+	cleanup := setupTestEnv(t)
+	defer cleanup()
+
+	status.HTTPGetFn = failHTTP
+
+	got := buildStatusline(promptCacheInput(t, `{"warm":true,"caching_observed":true,"hit_ratio":0.9}`), defaultCfg())
+
+	if strings.Contains(got, "🧊") {
+		t.Errorf("expected no prompt cache segment while warm, got %q", got)
+	}
+}
+
+// A cold cache means the next request re-processes the whole prefix, and the
+// cause names what to stop doing mid-session.
+func TestPromptCacheSegmentShowsCause(t *testing.T) {
+	cleanup := setupTestEnv(t)
+	defer cleanup()
+
+	status.HTTPGetFn = failHTTP
+
+	tests := []struct {
+		name  string
+		cause string
+		want  string
+	}{
+		{"tool set changed", `{"causes":["tools_changed"],"tools_added":2}`, "🧊 tools"},
+		{"idle past the 5m TTL", `{"causes":["ttl_expired_5m"]}`, "🧊 ttl"},
+		{"idle past the 1h TTL", `{"causes":["ttl_expired_1h"]}`, "🧊 ttl"},
+		{"effort switched", `{"causes":["effort_changed"]}`, "🧊 effort"},
+		{"usage limits", `{"causes":["overage_changed"]}`, "🧊 limits"},
+		{"nothing local changed", `{"causes":["likely_server_side"]}`, "🧊 server"},
+		{"more than one cause", `{"causes":["tools_changed","system_prompt_changed"]}`, "🧊 tools+"},
+		// A cause the harness adds later still reads as something, instead of
+		// collapsing into the bare icon.
+		{"cause added by a later harness", `{"causes":["sampling_params_changed"]}`, "🧊 sampling_params"},
+		{"cause not attributed", `{"causes":["unknown"]}`, "🧊"},
+		// Today the harness reports "unknown" alone. Were that to change, the
+		// segment must not degrade into a bare "+".
+		{"unlabelled cause alongside another", `{"causes":["unknown","tools_changed"]}`, "🧊"},
+		{"no cause reported", `null`, "🧊"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			input := promptCacheInput(t,
+				`{"warm":false,"caching_observed":true,"last_miss_cause":`+tt.cause+`}`)
+
+			line := buildStatusline(input, defaultCfg())
+
+			if got := promptCacheSegmentOf(t, line); got != tt.want {
+				t.Errorf("prompt cache segment = %q, want %q (line %q)", got, tt.want, line)
+			}
+		})
+	}
+}
+
+// Without caching_observed the provider or gateway never reported cache tokens,
+// so warm is false for the whole session and a cold marker would be permanent
+// noise rather than a signal.
+func TestPromptCacheSegmentSilentWithoutCaching(t *testing.T) {
+	cleanup := setupTestEnv(t)
+	defer cleanup()
+
+	status.HTTPGetFn = failHTTP
+
+	got := buildStatusline(promptCacheInput(t, `{"warm":false,"caching_observed":false}`), defaultCfg())
+
+	if strings.Contains(got, "🧊") {
+		t.Errorf("expected no prompt cache segment when caching is not observed, got %q", got)
+	}
+}
+
+// prompt_cache requires Claude Code 2.1.251, and is absent before the session's
+// first API response on every version.
+func TestPromptCacheSegmentSilentWhenAbsent(t *testing.T) {
+	cleanup := setupTestEnv(t)
+	defer cleanup()
+
+	status.HTTPGetFn = failHTTP
+
+	got := buildStatusline([]byte(`{"model":{"display_name":"Opus"}}`), defaultCfg())
+
+	if strings.Contains(got, "🧊") {
+		t.Errorf("expected no prompt cache segment without prompt_cache in stdin, got %q", got)
+	}
+}
+
+func TestPromptCacheSegmentDisabled(t *testing.T) {
+	cleanup := setupTestEnv(t)
+	defer cleanup()
+
+	status.HTTPGetFn = failHTTP
+
+	cfg := defaultCfg()
+	cfg.Segments.PromptCache = false
+
+	got := buildStatusline(promptCacheInput(t,
+		`{"warm":false,"caching_observed":true,"last_miss_cause":{"causes":["tools_changed"]}}`), cfg)
+
+	if strings.Contains(got, "🧊") {
+		t.Errorf("expected no prompt cache segment when disabled, got %q", got)
+	}
+}
+
+// The text theme drops every emoji, so the cause has to survive on its own.
+func TestPromptCacheSegmentTextTheme(t *testing.T) {
+	cleanup := setupTestEnv(t)
+	defer cleanup()
+
+	status.HTTPGetFn = failHTTP
+
+	useTextTheme(t)
+
+	got := buildStatusline(promptCacheInput(t,
+		`{"warm":false,"caching_observed":true,"last_miss_cause":{"causes":["tools_changed"]}}`), defaultCfg())
+
+	if !strings.Contains(got, "cache: tools") {
+		t.Errorf("expected a text-theme cache marker, got %q", got)
 	}
 }

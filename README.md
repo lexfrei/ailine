@@ -22,6 +22,7 @@ Real-time statusline for [Claude Code](https://docs.anthropic.com/en/docs/claude
 | 💰 Cost | Cumulative session cost in USD (hidden by default for subscribers, see [Cost mode](#cost-mode)) |
 | ⚠️/🔶/🔴 Status | Anthropic platform status: ⚠️ degraded, 🔶 major outage, 🔴 critical (hidden when all clear) |
 | 🧠 Context | Context window usage percentage (color-coded) |
+| 🧊 Prompt cache | Shown only when the prompt cache has gone cold, naming the session's most recent cache miss (Claude Code v2.1.251+, cause requires v2.1.260+), see [Prompt cache](#prompt-cache) |
 | 🔄 Compactions | Number of context compactions in current session |
 | 🟢/🟡/🟠/🔴 7d | 7-day rolling quota utilization with time until reset |
 | 🟢/🟡/🟠/🔴 5h | 5-hour rolling quota utilization with time until reset |
@@ -33,12 +34,39 @@ Real-time statusline for [Claude Code](https://docs.anthropic.com/en/docs/claude
   - thinking enabled → `💭`
   - fast mode → `⚡`
 
+### Prompt cache
+
+The segment stays hidden while the cache is warm, which is the normal state. It appears when the cached prefix has gone cold, because the next request then re-processes the whole conversation instead of reading it back.
+
+The word next to `🧊` names the session's most recent miss, which is usually an older event than the cold state itself. A miss rewrites the cache, so the prefix reads warm again on the request that missed, and what leaves it cold afterwards is sitting idle past its lifetime — on that path the miss is at least one lifetime old. The other way in is a response that carries no cache tokens at all, and there the miss can be seconds old. Either way, read the word as "this is what broke the cache", not "this is what is keeping it cold". Several causes collapse to the first plus `+`.
+
+| Label | Miss attributed to |
+| --- | --- |
+| `ttl` | The cache sat idle past its 5m or 1h lifetime |
+| `tools` | Tool definitions changed, for example an MCP server connected mid-session |
+| `prompt` | The system prompt changed |
+| `model` | The model changed |
+| `effort` | The effort level changed |
+| `fast` | Fast mode was toggled |
+| `auto` | Auto mode was toggled |
+| `history` | Earlier messages changed |
+| `limits` | The usage-limit state changed, such as moving onto usage credits |
+| `scope` | The cache scope or TTL changed |
+| `betas` | Beta headers changed |
+| `request` | Other request fields changed |
+| `defer` | Deferred tool loading changed |
+| `server` | Nothing local changed — likely server-side |
+
+A cause Claude Code adds later shows up under its own name. When no cause could be identified, the segment is the bare `🧊`, or `cache: cold` under the `text` theme.
+
+Requires Claude Code v2.1.251 for the cache state and v2.1.260 for the cause. On older versions, and before the session's first API response, the segment stays hidden.
+
 ### Themes
 
 The icon style is selectable with `theme` in config or `--theme` on the CLI:
 
   - `emoji` (default) — the rendering shown above.
-  - `text` — drops every emoji icon. Where an emoji encoded status by color (the `🟢/🟡/🟠/🔴` rate circles, the context meter, a changes-requested PR, and platform-status severity — `⚠️` minor → yellow, `🔶` major → orange, `🔴` critical → red), that color is carried onto the segment's text instead. Identifying emoji (`🤖`, `🐙`, `📝`) are removed, since the text already names the segment.
+  - `text` — drops every emoji icon. Where an emoji encoded status by color (the `🟢/🟡/🟠/🔴` rate circles, the context meter, a changes-requested PR, and platform-status severity — `⚠️` minor → yellow, `🔶` major → orange, `🔴` critical → red), that color is carried onto the segment's text instead. Identifying emoji (`🤖`, `🐙`, `📝`) are removed, since the text already names the segment. The prompt cache segment is the exception: its text is a bare cause word, so it names itself under this theme and renders as `cache: tools` rather than `tools`.
 
 Two kinds of state have no text form and are unavailable in this theme: the model's effort / thinking / fast-mode markers (`⏫`/`💭`/`⚡`) disappear entirely, and every PR review state except changes-requested (which survives as red) collapses to a plain `#N`.
 
@@ -165,6 +193,7 @@ worktree = true
 cost = "auto"
 status = true
 context = true
+prompt_cache = true
 compactions = true
 quota = true
 per_model_quota = "auto" # only takes effect with mac_insecure
@@ -186,7 +215,7 @@ claudeline --cost false --no-status
 claudeline --config /path/to/config.toml
 ```
 
-Available flags: `--theme`, `--no-model`, `--no-effort`, `--no-thinking`, `--no-fast-mode`, `--no-repo`, `--no-worktree`, `--cost`, `--no-status`, `--no-context`, `--no-compactions`, `--no-quota`, `--mac-insecure`, `--per-model-quota=auto|true|false`, `--no-credits`. The last two only take effect with `--mac-insecure`.
+Available flags: `--theme`, `--no-model`, `--no-effort`, `--no-thinking`, `--no-fast-mode`, `--no-repo`, `--no-worktree`, `--cost`, `--no-status`, `--no-context`, `--no-prompt-cache`, `--no-compactions`, `--no-quota`, `--mac-insecure`, `--per-model-quota=auto|true|false`, `--no-credits`. The last two only take effect with `--mac-insecure`.
 
 `--per-model-quota` is the one flag whose value must be attached with `=` (a bare `--per-model-quota` keeps its old meaning, "every window", which rules out the space form). See [Per-model quota modes](#per-model-quota-modes).
 
