@@ -41,6 +41,9 @@ type stdinPRInfo struct {
 	Number      int    `json:"number"`
 	URL         string `json:"url"`
 	ReviewState string `json:"review_state"` //nolint:tagliatelle // External API format
+	// Kind is "mr" for GitLab merge requests. GitHub pull requests omit it.
+	// Requires Claude Code 2.1.234.
+	Kind string `json:"kind"`
 }
 
 // stdinMissCause names why the last prompt-cache miss happened. The harness may
@@ -163,6 +166,7 @@ func newRootCmd() *cobra.Command {
 
 	flags.Bool("no-credits", false, "disable credits segment (only with --mac-insecure)")
 	flags.String("theme", "", "icon theme: emoji (default) or text")
+	flags.String("hyperlinks", "", "OSC 8 hyperlinks: auto (default), true, false")
 
 	// Deprecated no-op: the off-peak promotion feature was removed. The flag is
 	// kept (hidden) so existing statusLine.command invocations carrying
@@ -204,10 +208,10 @@ func applyFlagOverrides(cmd *cobra.Command, cfg *config.Config) {
 }
 
 // applyRuntimeConfig pushes resolved config values into the package globals
-// that rendering and fetching read at request time. It finalizes the theme:
-// config.Load already warned for a bad config-file value, so an invalid theme
-// reaching here can only come from a --theme flag (overrides run after Load) —
-// warn once and fall back to emoji, matching the config-file behavior.
+// that rendering and fetching read at request time. It finalizes the theme and
+// the hyperlink mode: config.Load already warned for a bad config-file value,
+// so an invalid one reaching here can only come from a flag (overrides run
+// after Load) — warn once and fall back, matching the config-file behavior.
 func applyRuntimeConfig(cfg *config.Config) {
 	status.CacheTTL = cfg.Cache.StatusTTL
 
@@ -223,6 +227,16 @@ func applyRuntimeConfig(cfg *config.Config) {
 	} else {
 		fmtutil.Style = fmtutil.StyleEmoji
 	}
+
+	hyperlinks := config.NormalizeHyperlinks(cfg.Hyperlinks)
+	if hyperlinks == "" {
+		fmt.Fprintf(os.Stderr, "claudeline: invalid hyperlinks mode %q, using auto\n", cfg.Hyperlinks)
+
+		hyperlinks = config.HyperlinksAuto
+	}
+
+	fmtutil.Hyperlinks = hyperlinks == config.HyperlinksOn ||
+		(hyperlinks == config.HyperlinksAuto && fmtutil.SupportsHyperlinks())
 
 	if cfg.MacInsecure {
 		usage.CacheTTL = cfg.Cache.UsageTTL
@@ -274,6 +288,12 @@ func applyDisplayFlags(cmd *cobra.Command, cfg *config.Config) {
 	if flagSet(cmd, "theme") {
 		if val, _ := cmd.PersistentFlags().GetString("theme"); val != "" {
 			cfg.Theme = val
+		}
+	}
+
+	if flagSet(cmd, "hyperlinks") {
+		if val, _ := cmd.PersistentFlags().GetString("hyperlinks"); val != "" {
+			cfg.Hyperlinks = val
 		}
 	}
 
@@ -443,6 +463,8 @@ func resolveCwd(data *stdinData) string {
 //
 //	🐙 owner/repo [<state> #N] [🌳 worktree] [🌿 branch]
 //
+// GitLab merge requests render as !N, matching GitLab's own notation.
+//
 // Host icon varies by `workspace.repo.host`; unknown hosts surface as
 // "📦 host/owner/repo" so the source is still legible. The 🌳 worktree marker
 // appears only inside a linked worktree.
@@ -450,20 +472,37 @@ func formatRepoSegment(data *stdinData) string {
 	repo := data.Workspace.Repo
 	icon, prefix := repoHostIcon(repo.Host)
 
-	parts := []string{fmtutil.Part(prefix+repo.Owner+"/"+repo.Name, icon)}
+	parts := []string{fmtutil.Link(fmtutil.Part(prefix+repo.Owner+"/"+repo.Name, icon), repoURL(repo))}
 
 	if data.PR != nil && data.PR.Number > 0 {
-		number := fmt.Sprintf("#%d", data.PR.Number)
-		if state := prReviewIcon(data.PR.ReviewState); state != "" {
-			parts = append(parts, fmtutil.Part(number, state))
-		} else {
-			parts = append(parts, number)
+		sigil := "#"
+		if data.PR.Kind == "mr" {
+			sigil = "!"
 		}
+
+		number := fmt.Sprintf("%s%d", sigil, data.PR.Number)
+		if state := prReviewIcon(data.PR.ReviewState); state != "" {
+			number = fmtutil.Part(number, state)
+		}
+
+		parts = append(parts, fmtutil.Link(number, data.PR.URL))
 	}
 
 	parts = append(parts, worktreeBranchParts(data)...)
 
 	return strings.Join(parts, " ")
+}
+
+// repoURL builds the web address of the repository. The harness sends the host,
+// owner and name but no URL, and https is the only scheme worth guessing for a
+// self-hosted forge. Any missing part means there is nothing to link, rather
+// than a link into a path that does not exist.
+func repoURL(repo *stdinRepoInfo) string {
+	if repo.Host == "" || repo.Owner == "" || repo.Name == "" {
+		return ""
+	}
+
+	return "https://" + repo.Host + "/" + repo.Owner + "/" + repo.Name
 }
 
 // repoHostIcon returns the leading emoji and an optional host prefix.

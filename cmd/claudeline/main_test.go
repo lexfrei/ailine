@@ -25,6 +25,9 @@ const (
 	flagNoWorktree  = "--no-worktree"
 )
 
+// badModeValue stands in for any unparsable mode reaching the flag layer.
+const badModeValue = "bogus"
+
 func defaultCfg() *config.Config {
 	cfg := config.Defaults()
 
@@ -312,6 +315,26 @@ func TestBuildStatuslineRepoSegment(t *testing.T) {
 			name:     "gitlab host",
 			input:    `{"workspace":{"repo":{"host":"gitlab.com","owner":"group","name":"proj"}}}`,
 			expected: "🦊 group/proj",
+		},
+		{
+			name:     "unknown kind falls back to the pull request sigil",
+			input:    `{"workspace":{"repo":{"host":"github.com","owner":"a","name":"b"}},"pr":{"number":7,"kind":"cr"}}`,
+			expected: "🐙 a/b #7",
+		},
+		{
+			name:     "gitlab merge request uses ! instead of #",
+			input:    `{"workspace":{"repo":{"host":"gitlab.com","owner":"group","name":"proj"}},"pr":{"number":7,"kind":"mr","review_state":"approved"}}`,
+			expected: "🦊 group/proj ✅ !7",
+		},
+		{
+			name:     "self-hosted gitlab merge request keeps the ! prefix",
+			input:    `{"workspace":{"repo":{"host":"git.example.com","owner":"o","name":"r"}},"pr":{"number":7,"kind":"mr"}}`,
+			expected: "📦 git.example.com/o/r !7",
+		},
+		{
+			name:     "github pull request keeps # when kind is absent",
+			input:    `{"workspace":{"repo":{"host":"github.com","owner":"a","name":"b"}},"pr":{"number":7,"review_state":"pending"}}`,
+			expected: "🐙 a/b 👀 #7",
 		},
 		{
 			name:     "bitbucket host",
@@ -1247,7 +1270,7 @@ func TestNewRootCmdWithFlags(t *testing.T) {
 	usage.HTTPGetFn = failHTTP
 
 	cmd := newRootCmd()
-	cmd.SetArgs([]string{flagNoModel, flagNoWorktree, "--cost", "false", flagConfig, "/nonexistent/config.toml"})
+	cmd.SetArgs([]string{flagNoModel, flagNoWorktree, "--cost", valueFalse, flagConfig, "/nonexistent/config.toml"})
 	cmd.SetIn(strings.NewReader(`{"workspace":{"git_worktree":"feat-api"}}`))
 
 	captured := captureStdout(t, func() {
@@ -1439,6 +1462,22 @@ func TestThemeFlagOverride(t *testing.T) {
 	}
 }
 
+func TestHyperlinksFlagOverride(t *testing.T) {
+	t.Parallel()
+
+	cmd := newRootCmd()
+	if err := cmd.ParseFlags([]string{"--hyperlinks", valueFalse}); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg := config.Defaults()
+	applyFlagOverrides(cmd, &cfg)
+
+	if cfg.Hyperlinks != config.HyperlinksOff {
+		t.Errorf("expected --hyperlinks false to override config, got %q", cfg.Hyperlinks)
+	}
+}
+
 // TestApplyRuntimeConfigTheme pins the cfg.Theme -> fmtutil.Style glue, the one
 // integration point every rendering test bypasses by setting Style directly. An
 // inverted or miswired branch here would render the wrong theme in the real
@@ -1448,12 +1487,16 @@ func TestApplyRuntimeConfigTheme(t *testing.T) {
 		config.ThemeText:  fmtutil.StyleText,
 		config.ThemeEmoji: fmtutil.StyleEmoji,
 		"":                fmtutil.StyleEmoji, // unset normalizes to emoji
-		"bogus":           fmtutil.StyleEmoji, // invalid flag value falls back
+		badModeValue:      fmtutil.StyleEmoji, // invalid flag value falls back
 	}
 
 	prev := fmtutil.Style
+	prevLinks := fmtutil.Hyperlinks
 
-	t.Cleanup(func() { fmtutil.Style = prev })
+	t.Cleanup(func() {
+		fmtutil.Style = prev
+		fmtutil.Hyperlinks = prevLinks
+	})
 
 	for theme, want := range cases {
 		cfg := config.Defaults()
@@ -1676,5 +1719,160 @@ func TestPromptCacheSegmentTextTheme(t *testing.T) {
 
 	if !strings.Contains(got, "cache: tools") {
 		t.Errorf("expected a text-theme cache marker, got %q", got)
+	}
+}
+
+// useHyperlinks turns OSC 8 rendering on for one test. Not parallel-safe:
+// Hyperlinks is shared process state.
+func useHyperlinks(t *testing.T) {
+	t.Helper()
+
+	prev := fmtutil.Hyperlinks
+	fmtutil.Hyperlinks = true
+
+	t.Cleanup(func() { fmtutil.Hyperlinks = prev })
+}
+
+func TestBuildStatuslineLinksRepoAndPR(t *testing.T) {
+	cleanup := setupTestEnv(t)
+	defer cleanup()
+
+	status.HTTPGetFn = failHTTP
+
+	useHyperlinks(t)
+
+	input := `{"workspace":{"repo":{"host":"github.com","owner":"lexfrei","name":"claudeline"}},` +
+		`"pr":{"number":42,"url":"https://github.com/lexfrei/claudeline/pull/42","review_state":"approved"}}`
+
+	got := buildStatusline([]byte(input), defaultCfg())
+
+	wantRepo := "\x1b]8;;https://github.com/lexfrei/claudeline\x07🐙 lexfrei/claudeline\x1b]8;;\x07"
+	if !strings.Contains(got, wantRepo) {
+		t.Errorf("expected linked repo %q in %q", wantRepo, got)
+	}
+
+	wantPR := "\x1b]8;;https://github.com/lexfrei/claudeline/pull/42\x07✅ #42\x1b]8;;\x07"
+	if !strings.Contains(got, wantPR) {
+		t.Errorf("expected linked PR %q in %q", wantPR, got)
+	}
+}
+
+func TestBuildStatuslineSkipsPRLinkWithoutURL(t *testing.T) {
+	cleanup := setupTestEnv(t)
+	defer cleanup()
+
+	status.HTTPGetFn = failHTTP
+
+	useHyperlinks(t)
+
+	input := `{"workspace":{"repo":{"host":"github.com","owner":"a","name":"b"}},"pr":{"number":42}}`
+
+	got := buildStatusline([]byte(input), defaultCfg())
+
+	// The repo still links; the PR number must not, leaving one link in all.
+	if n := strings.Count(got, "\x1b]8;;https://"); n != 1 {
+		t.Errorf("expected exactly one hyperlink, got %d in %q", n, got)
+	}
+
+	if !strings.HasSuffix(got, " #42") {
+		t.Errorf("expected a bare PR number at the end of %q", got)
+	}
+}
+
+// An unknown host still yields a repository URL, since the segment already
+// prints the host and https is the only scheme worth guessing.
+func TestBuildStatuslineLinksSelfHostedRepo(t *testing.T) {
+	cleanup := setupTestEnv(t)
+	defer cleanup()
+
+	status.HTTPGetFn = failHTTP
+
+	useHyperlinks(t)
+
+	input := `{"workspace":{"repo":{"host":"git.example.com","owner":"o","name":"r"}}}`
+
+	got := buildStatusline([]byte(input), defaultCfg())
+
+	want := "\x1b]8;;https://git.example.com/o/r\x07📦 git.example.com/o/r\x1b]8;;\x07"
+	if !strings.Contains(got, want) {
+		t.Errorf("expected linked repo %q in %q", want, got)
+	}
+}
+
+func TestBuildStatuslineHostlessRepoHasNoLink(t *testing.T) {
+	cleanup := setupTestEnv(t)
+	defer cleanup()
+
+	status.HTTPGetFn = failHTTP
+
+	useHyperlinks(t)
+
+	input := `{"workspace":{"repo":{"host":"","owner":"o","name":"r"}}}`
+
+	got := buildStatusline([]byte(input), defaultCfg())
+	if strings.Contains(got, "\x1b]8;;") {
+		t.Errorf("expected no hyperlink without a host, got %q", got)
+	}
+}
+
+func TestBuildStatuslinePartialRepoHasNoLink(t *testing.T) {
+	cleanup := setupTestEnv(t)
+	defer cleanup()
+
+	status.HTTPGetFn = failHTTP
+
+	useHyperlinks(t)
+
+	input := `{"workspace":{"repo":{"host":"github.com","owner":"","name":""}}}`
+
+	got := buildStatusline([]byte(input), defaultCfg())
+	if strings.Contains(got, "\x1b]8;;") {
+		t.Errorf("expected no hyperlink without an owner and name, got %q", got)
+	}
+}
+
+func TestApplyRuntimeConfigHyperlinks(t *testing.T) {
+	prev := fmtutil.Hyperlinks
+
+	t.Cleanup(func() { fmtutil.Hyperlinks = prev })
+
+	cases := map[string]bool{
+		config.HyperlinksOn:   true,
+		config.HyperlinksOff:  false,
+		config.HyperlinksAuto: false, // TERM_PROGRAM is cleared below
+		badModeValue:          false, // invalid flag value falls back to auto
+	}
+
+	t.Setenv("TERM_PROGRAM", "")
+	t.Setenv("TERM", "dumb")
+	t.Setenv("WT_SESSION", "")
+	t.Setenv("VTE_VERSION", "")
+	t.Setenv("KONSOLE_VERSION", "")
+	t.Setenv("DOMTERM", "")
+	t.Setenv("KITTY_WINDOW_ID", "")
+	t.Setenv("TMUX", "")
+	t.Setenv("STY", "")
+	t.Setenv("ZELLIJ", "")
+
+	for mode, want := range cases {
+		cfg := config.Defaults()
+		cfg.Hyperlinks = mode
+
+		applyRuntimeConfig(&cfg)
+
+		if fmtutil.Hyperlinks != want {
+			t.Errorf("hyperlinks %q -> %v, want %v", mode, fmtutil.Hyperlinks, want)
+		}
+	}
+
+	t.Setenv("TERM_PROGRAM", "iTerm.app")
+
+	cfg := config.Defaults()
+	cfg.Hyperlinks = config.HyperlinksAuto
+
+	applyRuntimeConfig(&cfg)
+
+	if !fmtutil.Hyperlinks {
+		t.Error("auto mode on a known terminal should enable hyperlinks")
 	}
 }

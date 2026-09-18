@@ -19,6 +19,8 @@ import (
 const (
 	flagConfig        = "--config"
 	flagPerModelQuota = "--per-model-quota"
+	// valueFalse is the spelling a mode flag takes on the command line.
+	valueFalse = "false"
 )
 
 // stubScopedUsageAPI serves a usage response holding a top-level Opus window and
@@ -469,9 +471,9 @@ func TestCostFlagSpellings(t *testing.T) {
 		{"on", config.CostOn},
 		{"1", config.CostOn},
 		{"True", config.CostOn},
-		{"false", config.CostOff},
+		{valueFalse, config.CostOff},
 		{"off", config.CostOff},
-		{"bogus", config.CostAuto},
+		{badModeValue, config.CostAuto},
 	}
 
 	for _, tt := range tests {

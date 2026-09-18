@@ -84,6 +84,26 @@ func NormalizePerModelQuota(raw string) string {
 	return normalizeBoolish(raw)
 }
 
+// Hyperlink mode values controlling OSC 8 rendering.
+const (
+	// HyperlinksAuto emits hyperlinks only on terminals known to render them.
+	HyperlinksAuto = modeAuto
+	// HyperlinksOn emits hyperlinks whatever the terminal claims to be.
+	HyperlinksOn = modeOn
+	// HyperlinksOff never emits hyperlinks.
+	HyperlinksOff = modeOff
+)
+
+// NormalizeHyperlinks converts user input to a canonical hyperlink mode.
+// Returns "" for unknown values.
+func NormalizeHyperlinks(raw string) string {
+	if isAuto(raw) {
+		return HyperlinksAuto
+	}
+
+	return normalizeBoolish(raw)
+}
+
 // Theme values selecting the statusline icon style.
 const (
 	ThemeEmoji = "emoji"
@@ -135,6 +155,9 @@ type Config struct {
 	// Theme selects the icon style: "emoji" (default) or "text" (no emoji,
 	// status carried as text color).
 	Theme string `mapstructure:"theme"`
+	// Hyperlinks controls whether the repo segment wraps the repository and
+	// the PR number in OSC 8 links: "auto" (default), "true" or "false".
+	Hyperlinks string `mapstructure:"hyperlinks"`
 }
 
 // Defaults returns a Config with all segments enabled and default TTLs.
@@ -160,7 +183,8 @@ func Defaults() Config {
 			UsageTTL:  defaultUsageTTL,
 			StatusTTL: defaultStatusTTL,
 		},
-		Theme: ThemeEmoji,
+		Theme:      ThemeEmoji,
+		Hyperlinks: HyperlinksAuto,
 	}
 }
 
@@ -213,6 +237,14 @@ func Load(configPath string) Config {
 		cfg.Theme = ThemeEmoji
 	}
 
+	cfg.Hyperlinks = NormalizeHyperlinks(cfg.Hyperlinks)
+	if cfg.Hyperlinks == "" {
+		fmt.Fprintf(os.Stderr, "claudeline: invalid hyperlinks mode %q, using auto\n",
+			viperInstance.GetString("hyperlinks"))
+
+		cfg.Hyperlinks = HyperlinksAuto
+	}
+
 	return cfg
 }
 
@@ -239,6 +271,7 @@ var knownKeys = map[string]bool{
 	"cache.status_ttl": true,
 	"mac_insecure":     true,
 	"theme":            true,
+	"hyperlinks":       true,
 }
 
 // Validate checks the config file at the given path for errors.
@@ -278,6 +311,7 @@ func Validate(configPath string) []string {
 	problems = append(problems, validateSegments(&cfg.Segments, viperInstance)...)
 	problems = append(problems, validateCache(&cfg.Cache)...)
 	problems = append(problems, validateTheme(cfg.Theme)...)
+	problems = append(problems, validateHyperlinks(cfg.Hyperlinks)...)
 
 	return problems
 }
@@ -285,6 +319,14 @@ func Validate(configPath string) []string {
 func validateTheme(raw string) []string {
 	if NormalizeTheme(raw) == "" {
 		return []string{fmt.Sprintf("theme: unknown value %q (expected emoji or text)", raw)}
+	}
+
+	return nil
+}
+
+func validateHyperlinks(raw string) []string {
+	if NormalizeHyperlinks(raw) == "" {
+		return []string{fmt.Sprintf("hyperlinks: unknown value %q (expected auto, true, or false)", raw)}
 	}
 
 	return nil
@@ -370,6 +412,7 @@ func setViperDefaults(viperInstance *viper.Viper) {
 	viperInstance.SetDefault("segments.credits", true)
 	viperInstance.SetDefault("mac_insecure", false)
 	viperInstance.SetDefault("theme", ThemeEmoji)
+	viperInstance.SetDefault("hyperlinks", HyperlinksAuto)
 	viperInstance.SetDefault("cache.usage_ttl", defaultUsageTTL)
 	viperInstance.SetDefault("cache.status_ttl", defaultStatusTTL)
 }
