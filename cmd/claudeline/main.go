@@ -41,6 +41,8 @@ type stdinPRInfo struct {
 	Number      int    `json:"number"`
 	URL         string `json:"url"`
 	ReviewState string `json:"review_state"` //nolint:tagliatelle // External API format
+	// Kind is "mr" for GitLab merge requests. GitHub pull requests omit it.
+	Kind string `json:"kind"`
 }
 
 // stdinMissCause names why the last prompt-cache miss happened. The harness may
@@ -443,6 +445,8 @@ func resolveCwd(data *stdinData) string {
 //
 //	🐙 owner/repo [<state> #N] [🌳 worktree] [🌿 branch]
 //
+// GitLab merge requests render as !N, matching GitLab's own notation.
+//
 // Host icon varies by `workspace.repo.host`; unknown hosts surface as
 // "📦 host/owner/repo" so the source is still legible. The 🌳 worktree marker
 // appears only inside a linked worktree.
@@ -453,7 +457,12 @@ func formatRepoSegment(data *stdinData) string {
 	parts := []string{fmtutil.Part(prefix+repo.Owner+"/"+repo.Name, icon)}
 
 	if data.PR != nil && data.PR.Number > 0 {
-		number := fmt.Sprintf("#%d", data.PR.Number)
+		sigil := "#"
+		if data.PR.Kind == "mr" {
+			sigil = "!"
+		}
+
+		number := fmt.Sprintf("%s%d", sigil, data.PR.Number)
 		if state := prReviewIcon(data.PR.ReviewState); state != "" {
 			parts = append(parts, fmtutil.Part(number, state))
 		} else {

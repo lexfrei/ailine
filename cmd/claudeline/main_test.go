@@ -314,6 +314,21 @@ func TestBuildStatuslineRepoSegment(t *testing.T) {
 			expected: "🦊 group/proj",
 		},
 		{
+			name:     "gitlab merge request uses ! instead of #",
+			input:    `{"workspace":{"repo":{"host":"gitlab.com","owner":"group","name":"proj"}},"pr":{"number":7,"kind":"mr","review_state":"approved"}}`,
+			expected: "🦊 group/proj ✅ !7",
+		},
+		{
+			name:     "self-hosted gitlab merge request keeps the ! prefix",
+			input:    `{"workspace":{"repo":{"host":"git.example.com","owner":"o","name":"r"}},"pr":{"number":7,"kind":"mr"}}`,
+			expected: "📦 git.example.com/o/r !7",
+		},
+		{
+			name:     "github pull request keeps # when kind is absent",
+			input:    `{"workspace":{"repo":{"host":"github.com","owner":"a","name":"b"}},"pr":{"number":7,"review_state":"pending"}}`,
+			expected: "🐙 a/b 👀 #7",
+		},
+		{
 			name:     "bitbucket host",
 			input:    `{"workspace":{"repo":{"host":"bitbucket.org","owner":"team","name":"app"}}}`,
 			expected: "🪣 team/app",

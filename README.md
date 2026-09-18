@@ -17,7 +17,7 @@ Real-time statusline for [Claude Code](https://docs.anthropic.com/en/docs/claude
 | Segment | Description |
 | --- | --- |
 | 🤖 Model | Active model name, with effort / thinking / fast-mode indicators (Claude Code v2.1.119+) |
-| 🐙 Repo | Repository host icon, `owner/name`, optional `#PR <state>`, optional `🌳 worktree` (linked worktrees only) and `🌿 branch` (Claude Code v2.1.145+) |
+| 🐙 Repo | Repository host icon, `owner/name`, optional `#PR <state>` (`!MR` for GitLab merge requests), optional `🌳 worktree` (linked worktrees only) and `🌿 branch` (Claude Code v2.1.145+) |
 | 🌳 Worktree / 🌿 Branch | Linked-worktree directory name and current branch; branch alone falls back here when no repository info is available |
 | 💰 Cost | Cumulative session cost in USD (hidden by default for subscribers, see [Cost mode](#cost-mode)) |
 | ⚠️/🔶/🔴 Status | Anthropic platform status: ⚠️ degraded, 🔶 major outage, 🔴 critical (hidden when all clear) |
@@ -68,7 +68,7 @@ The icon style is selectable with `theme` in config or `--theme` on the CLI:
   - `emoji` (default) — the rendering shown above.
   - `text` — drops every emoji icon. Where an emoji encoded status by color (the `🟢/🟡/🟠/🔴` rate circles, the context meter, a changes-requested PR, and platform-status severity — `⚠️` minor → yellow, `🔶` major → orange, `🔴` critical → red), that color is carried onto the segment's text instead. Identifying emoji (`🤖`, `🐙`, `📝`) are removed, since the text already names the segment. The prompt cache segment is the exception: its text is a bare cause word, so it names itself under this theme and renders as `cache: tools` rather than `tools`.
 
-Two kinds of state have no text form and are unavailable in this theme: the model's effort / thinking / fast-mode markers (`⏫`/`💭`/`⚡`) disappear entirely, and every PR review state except changes-requested (which survives as red) collapses to a plain `#N`.
+Two kinds of state have no text form and are unavailable in this theme: the model's effort / thinking / fast-mode markers (`⏫`/`💭`/`⚡`) disappear entirely, and every PR review state except changes-requested (which survives as red) collapses to a plain `#N` (or `!N` for a merge request).
 
 The same state as the example above, under `--theme text` (status shown here in **bold** to stand in for color):
 
@@ -89,7 +89,7 @@ When `$COLUMNS` is unset (older Claude Code, non-terminal hosts), output stays o
 Renders when Claude Code reports `workspace.repo` (a git remote pointing at a known host):
 
   - `🐙` github.com, `🦊` gitlab.com, `🪣` bitbucket.org, `📦` other hosts (with `host/` prefix)
-  - review state followed by `#N`: `📝` draft, `👀` pending, `💬` commented, `🔴` changes requested, `✅` approved
+  - review state followed by `#N`, or `!N` when Claude Code reports the change as a GitLab merge request: `📝` draft, `👀` pending, `💬` commented, `🔴` changes requested, `✅` approved
   - `🌳 worktree` — directory name of the linked worktree, shown only when `cwd` is a linked worktree (in the main clone it would just duplicate the repo name, so it is omitted)
   - `🌿 branch` — current branch read directly from `cwd/.git/HEAD`; when HEAD is detached or unreadable it falls back to the worktree name from stdin, but only if the `🌳` marker is not already shown (so the same name is never printed twice)
 
