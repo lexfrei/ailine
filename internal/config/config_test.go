@@ -444,3 +444,100 @@ func TestValidatePromptCacheAccepted(t *testing.T) {
 		t.Errorf("expected no problems, got %v", problems)
 	}
 }
+
+func TestNormalizeHyperlinks(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		in   string
+		want string
+	}{
+		{"", HyperlinksAuto},
+		{"auto", HyperlinksAuto},
+		{"AUTO", HyperlinksAuto},
+		{"true", HyperlinksOn},
+		{"on", HyperlinksOn},
+		{"1", HyperlinksOn},
+		{"false", HyperlinksOff},
+		{"off", HyperlinksOff},
+		{"0", HyperlinksOff},
+		{"maybe", ""},
+	}
+
+	for _, tcase := range cases {
+		t.Run(tcase.in, func(t *testing.T) {
+			t.Parallel()
+
+			if got := NormalizeHyperlinks(tcase.in); got != tcase.want {
+				t.Errorf("NormalizeHyperlinks(%q) = %q, want %q", tcase.in, got, tcase.want)
+			}
+		})
+	}
+}
+
+func TestDefaultsHyperlinksAuto(t *testing.T) {
+	t.Parallel()
+
+	if got := Defaults().Hyperlinks; got != HyperlinksAuto {
+		t.Errorf("Defaults().Hyperlinks = %q, want %q", got, HyperlinksAuto)
+	}
+}
+
+func TestLoadHyperlinks(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]string{
+		`hyperlinks = "true"`:  HyperlinksOn,
+		`hyperlinks = "off"`:   HyperlinksOff,
+		`hyperlinks = "auto"`:  HyperlinksAuto,
+		`hyperlinks = "maybe"`: HyperlinksAuto, // invalid falls back to auto
+		``:                     HyperlinksAuto, // absent key defaults to auto
+	}
+
+	for content, want := range cases {
+		configPath := filepath.Join(t.TempDir(), "config.toml")
+		if err := os.WriteFile(configPath, []byte(content), 0o600); err != nil {
+			t.Fatal(err)
+		}
+
+		if got := Load(configPath).Hyperlinks; got != want {
+			t.Errorf("Load(%q).Hyperlinks = %q, want %q", content, got, want)
+		}
+	}
+}
+
+func TestValidateBadHyperlinks(t *testing.T) {
+	t.Parallel()
+
+	configPath := filepath.Join(t.TempDir(), "config.toml")
+	if err := os.WriteFile(configPath, []byte(`hyperlinks = "maybe"`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	problems := Validate(configPath)
+
+	found := false
+
+	for _, p := range problems {
+		if p == `hyperlinks: unknown value "maybe" (expected auto, true, or false)` {
+			found = true
+		}
+	}
+
+	if !found {
+		t.Errorf("expected hyperlinks validation error, got %v", problems)
+	}
+}
+
+func TestValidateGoodHyperlinks(t *testing.T) {
+	t.Parallel()
+
+	configPath := filepath.Join(t.TempDir(), "config.toml")
+	if err := os.WriteFile(configPath, []byte(`hyperlinks = "false"`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	if problems := Validate(configPath); len(problems) != 0 {
+		t.Errorf("expected no problems for hyperlinks=false, got %v", problems)
+	}
+}

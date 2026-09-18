@@ -17,7 +17,7 @@ Real-time statusline for [Claude Code](https://docs.anthropic.com/en/docs/claude
 | Segment | Description |
 | --- | --- |
 | 🤖 Model | Active model name, with effort / thinking / fast-mode indicators (Claude Code v2.1.119+) |
-| 🐙 Repo | Repository host icon, `owner/name`, optional `#PR <state>` (`!MR` for GitLab merge requests), optional `🌳 worktree` (linked worktrees only) and `🌿 branch` (Claude Code v2.1.145+) |
+| 🐙 Repo | Repository host icon, `owner/name`, optional `#PR <state>` (`!MR` for GitLab merge requests, v2.1.234+), optional `🌳 worktree` (linked worktrees only) and `🌿 branch` (Claude Code v2.1.145+) |
 | 🌳 Worktree / 🌿 Branch | Linked-worktree directory name and current branch; branch alone falls back here when no repository info is available |
 | 💰 Cost | Cumulative session cost in USD (hidden by default for subscribers, see [Cost mode](#cost-mode)) |
 | ⚠️/🔶/🔴 Status | Anthropic platform status: ⚠️ degraded, 🔶 major outage, 🔴 critical (hidden when all clear) |
@@ -95,6 +95,8 @@ Renders when Claude Code reports `workspace.repo` (a git remote pointing at a kn
 
 When no `workspace.repo` is present (non-git directory), the segment falls back to the bare `🌳 worktree 🌿 branch` form showing the same sources.
 
+The repository and the PR number are also OSC 8 hyperlinks, so a click opens them in the browser. `hyperlinks = "auto"` (the default) emits them on terminals known to render OSC 8: iTerm2, WezTerm, Ghostty, kitty, Alacritty, foot, mintty, VS Code, Windows Terminal, Warp, Hyper, Tabby, rio, DomTerm, and recent VTE or Konsole builds. Terminal.app is not one of them. Set `hyperlinks = "true"` to force them on, `"false"` to turn them off. Inside tmux the links stay off even on a listed terminal: Claude Code drops OSC 8 coming from a statusline command there, so a link would render and never open. screen and zellij are treated the same way, on the assumption that the same rendering path applies. The PR link uses the URL Claude Code sends; the repository link is built as `https://host/owner/name`, so a self-hosted forge served over plain HTTP will not match.
+
 Quota indicators compare your usage rate against elapsed time to warn about hitting limits:
 
 - 🟢 usage pace is sustainable
@@ -119,6 +121,7 @@ Set via `--cost auto|true|false` or `cost = "auto"` in config.
 - Claude Code v2.1.119+ enables effort, thinking, and fast-mode indicators
 - Claude Code v2.1.145+ enables the combined repo / PR segment
 - Claude Code v2.1.153+ enables terminal-width-aware line wrapping (via the `COLUMNS` env var)
+- Claude Code v2.1.234+ reports GitLab merge requests, rendered as `!N`
 - Current branch in `🌿 branch` is read directly from `cwd/.git/HEAD`, no `git` binary required
 
 ## Installation
@@ -182,6 +185,7 @@ Optional config file at `~/.claudelinerc.toml`:
 
 ```toml
 theme = "emoji" # or "text"
+hyperlinks = "auto" # or "true" / "false"
 
 [segments]
 model = true
@@ -202,7 +206,7 @@ per_model_quota = "auto" # only takes effect with mac_insecure
 status_ttl = "15s"
 ```
 
-Set any segment to `false` to hide it (`cost` and `per_model_quota` accept `"auto"`, `"true"`, `"false"`; `theme` accepts `"emoji"`, `"text"`).
+Set any segment to `false` to hide it (`cost` and `per_model_quota` accept `"auto"`, `"true"`, `"false"`). The two top-level keys take their own values: `theme` accepts `"emoji"` or `"text"`, `hyperlinks` accepts `"auto"`, `"true"` or `"false"`.
 
 Run `claudeline validate --config ~/.claudelinerc.toml` to check your config for typos and invalid values.
 
@@ -215,7 +219,7 @@ claudeline --cost false --no-status
 claudeline --config /path/to/config.toml
 ```
 
-Available flags: `--theme`, `--no-model`, `--no-effort`, `--no-thinking`, `--no-fast-mode`, `--no-repo`, `--no-worktree`, `--cost`, `--no-status`, `--no-context`, `--no-prompt-cache`, `--no-compactions`, `--no-quota`, `--mac-insecure`, `--per-model-quota=auto|true|false`, `--no-credits`. The last two only take effect with `--mac-insecure`.
+Available flags: `--theme`, `--hyperlinks`, `--no-model`, `--no-effort`, `--no-thinking`, `--no-fast-mode`, `--no-repo`, `--no-worktree`, `--cost`, `--no-status`, `--no-context`, `--no-prompt-cache`, `--no-compactions`, `--no-quota`, `--mac-insecure`, `--per-model-quota=auto|true|false`, `--no-credits`. The last two only take effect with `--mac-insecure`.
 
 `--per-model-quota` is the one flag whose value must be attached with `=` (a bare `--per-model-quota` keeps its old meaning, "every window", which rules out the space form). See [Per-model quota modes](#per-model-quota-modes).
 

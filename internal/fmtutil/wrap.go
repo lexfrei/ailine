@@ -7,12 +7,13 @@ import (
 	"github.com/mattn/go-runewidth"
 )
 
-// ansiEscape strips SGR escape sequences (color codes) before measuring
-// visual width. Without this `\033[32m🧠 50%\033[0m` would over-count.
-// Covers SGR only. If future segments embed OSC 8 hyperlinks
-// (`\x1b]8;;url\x07text\x1b]8;;\x07`), cursor moves, or other CSI escapes,
-// extend the pattern accordingly.
-var ansiEscape = regexp.MustCompile("\x1b\\[[0-9;]*m")
+// ansiEscape strips the escape sequences segments embed before measuring
+// visual width. Without this `\033[32m🧠 50%\033[0m` would over-count. Covers
+// SGR colors and OSC 8 hyperlinks under either terminator the sequence allows,
+// BEL or ST, so switching Link from one to the other cannot silently skew the
+// width. Cursor moves and other CSI escapes are not matched; a segment growing
+// one needs this pattern extended.
+var ansiEscape = regexp.MustCompile("\x1b\\[[0-9;]*m|\x1b\\]8;[^\x07\x1b]*(?:\x07|\x1b\\\\)")
 
 const (
 	segmentSeparator = " | "
@@ -25,8 +26,9 @@ const (
 	minWrapWidth = 10
 )
 
-// VisualWidth returns the visible cell width of s with ANSI SGR codes stripped
-// and emoji counted as two cells.
+// VisualWidth returns the visible cell width of s with the escape sequences
+// ansiEscape covers stripped (SGR colors and OSC 8 hyperlinks) and emoji
+// counted as two cells.
 func VisualWidth(s string) int {
 	return runewidth.StringWidth(ansiEscape.ReplaceAllString(s, ""))
 }

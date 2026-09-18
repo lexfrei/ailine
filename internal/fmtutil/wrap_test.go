@@ -17,6 +17,8 @@ func TestVisualWidth(t *testing.T) {
 		{"emoji 2-cell", "🤖", 2},
 		{"emoji plus ascii", "🤖 Opus", 7},
 		{"ansi color stripped", "\x1b[32m🧠 50%\x1b[0m", 6},
+		{"osc8 hyperlink stripped", "\x1b]8;;https://example.com\x07#42\x1b]8;;\x07", 3},
+		{"osc8 with ST terminator stripped", "\x1b]8;;https://example.com\x1b\\#42\x1b]8;;\x1b\\", 3},
 	}
 
 	for _, tcase := range cases {
