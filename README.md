@@ -135,12 +135,12 @@ brew install lexfrei/tap/claudeline
 ### APT (Debian, Ubuntu)
 
 ```bash
-curl --fail --silent --show-error --location https://lexfrei.github.io/apt/lexfrei.asc \
+curl --fail --silent --show-error --location https://apt.lexfrei.dev/lexfrei.asc \
   | sudo gpg --dearmor --output /usr/share/keyrings/lexfrei.gpg
 
 sudo tee /etc/apt/sources.list.d/lexfrei.sources >/dev/null <<'EOF'
 Types: deb
-URIs: https://lexfrei.github.io/apt
+URIs: https://apt.lexfrei.dev
 Suites: stable
 Components: main
 Signed-By: /usr/share/keyrings/lexfrei.gpg
