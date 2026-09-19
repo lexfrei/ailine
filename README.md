@@ -198,6 +198,21 @@ Set `refreshInterval` in `~/.claude/settings.json` to also re-run the command on
 }
 ```
 
+## Running Claude Code on GLM (Z.ai)
+
+When Claude Code is pointed at Z.ai's Anthropic-compatible endpoint (`ANTHROPIC_BASE_URL` on `api.z.ai`, or its Zhipu `*.bigmodel.cn` mirrors), claudeline adapts automatically — no extra flags:
+
+```text
+🤖 GLM-5.2 ⬆️💭 | 🧠 42% | 🟢 7d: 22% (3d 1h) | 🟢 5h: 18% (1h 41m) | 🌿 master
+```
+
+- **Model segment** — GLM model ids are rendered the way Z.ai spells them (`glm-5.2` → `GLM-5.2`, `glm-4.5-air` → `GLM-4.5-Air`). The harness only title-cases unknown ids (`Glm 5.2`); a genuine display name from the harness still wins.
+- **Quota segments** — stdin carries no `rate_limits` on Z.ai, so the 5-hour and weekly windows of the GLM Coding Plan are read from Z.ai's own usage API (`GET /api/monitor/usage/quota/limit`), authenticated with the same `ANTHROPIC_AUTH_TOKEN` Claude Code uses. Responses are cached like every other fetch; on failure the last good sample renders stale, and a rejected key shows `⚠️ key invalid`. The plan's monthly tool counter (web search and friends) is not a percentage window and is not rendered.
+- **Cost segment** — `auto` hides cost on Z.ai: Coding Plan sessions are quota-metered, and the harness's cost figure knows no GLM pricing. `--cost true` still forces it.
+- **Status segment** — the platform-status feed tracks Anthropic's endpoint, so it is not consulted while on Z.ai.
+
+Provider detection prefers the base URL and falls back to the model id (`glm-*`), so the Z.ai quota path works even without the env exported.
+
 ## Configuration
 
 Optional config file at `~/.claudelinerc.toml`:

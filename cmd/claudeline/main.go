@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/spf13/cobra"
 
@@ -17,8 +18,10 @@ import (
 	"github.com/lexfrei/claudeline/internal/config"
 	"github.com/lexfrei/claudeline/internal/fmtutil"
 	"github.com/lexfrei/claudeline/internal/gitinfo"
+	"github.com/lexfrei/claudeline/internal/provider"
 	"github.com/lexfrei/claudeline/internal/status"
 	"github.com/lexfrei/claudeline/internal/usage"
+	"github.com/lexfrei/claudeline/internal/zai"
 )
 
 var (
@@ -241,6 +244,8 @@ func applyRuntimeConfig(cfg *config.Config) {
 	if cfg.MacInsecure {
 		usage.CacheTTL = cfg.Cache.UsageTTL
 	}
+
+	zai.CacheTTL = cfg.Cache.UsageTTL
 }
 
 func applyIdentityFlags(cmd *cobra.Command, cfg *config.Config) {
@@ -362,20 +367,51 @@ func buildStatusline(raw []byte, cfg *config.Config) string {
 		fmt.Fprintf(os.Stderr, "claudeline: stdin parse error: %v\n", unmarshalErr)
 	}
 
+	prov := activeProvider(&data)
+
 	var segments []string
 
-	segments = appendIdentitySegments(segments, &data, cfg)
-	segments = appendCostAndStatusSegments(segments, &data, cfg)
+	segments = appendIdentitySegments(segments, &data, cfg, prov)
+	segments = appendCostAndStatusSegments(segments, &data, cfg, prov)
 	segments = appendContextSegments(segments, &data, cfg)
 
 	if cfg.Segments.Quota || cfg.Segments.Credits {
-		segments = appendUsageSegments(segments, &data, cfg)
+		segments = appendUsageSegments(segments, &data, cfg, prov)
 	}
 
 	segments = appendRepoSegment(segments, &data, cfg)
 
 	return fmtutil.JoinPipeWrap(segments, wrapWidth())
 }
+
+// activeProvider decides which API provider the session runs on. The base URL
+// Claude Code is configured with (exported to the statusline process) is
+// authoritative; a GLM model id is a secondary signal for setups where that
+// env did not propagate but the model still names its vendor.
+func activeProvider(data *stdinData) provider.Provider {
+	if prov := provider.Detect(os.Getenv("ANTHROPIC_BASE_URL")); prov == provider.Zai {
+		return prov
+	}
+
+	id := strings.ToLower(data.Model.ID)
+
+	if id == glmFamily || strings.HasPrefix(id, glmFamily+"-") {
+		return provider.Zai
+	}
+
+	return provider.Anthropic
+}
+
+// glmFamily is the token naming Z.ai's model family, in id and display
+// spellings: model ids are lowercased slugs (glm-5.2), displays are capitalized.
+const (
+	glmFamily        = "glm"
+	glmFamilyDisplay = "GLM"
+)
+
+// defaultZaiRoot is the server root used when GLM was detected from the model
+// id rather than the base URL and no root can be derived.
+const defaultZaiRoot = "https://api.z.ai"
 
 // wrapWidth returns the visual width JoinPipeWrap should target.
 //
@@ -541,17 +577,84 @@ func prReviewIcon(state string) string {
 }
 
 // appendIdentitySegments adds model segment.
-func appendIdentitySegments(segments []string, data *stdinData, cfg *config.Config) []string {
+func appendIdentitySegments(segments []string, data *stdinData, cfg *config.Config, prov provider.Provider) []string {
 	if cfg.Segments.Model {
-		model := "Claude"
-		if data.Model.DisplayName != "" {
-			model = data.Model.DisplayName
-		}
+		model := modelDisplayName(data, prov)
 
 		segments = append(segments, fmtutil.Part(model, append([]string{"🤖"}, modelSubIcons(data, cfg)...)...))
 	}
 
 	return segments
+}
+
+// modelDisplayName picks the name shown in the model segment. A display name
+// the harness resolved from its model catalog is trusted as-is; one that merely
+// cosmeticizes the id is replaced — the harness title-cases unknown ids, so a
+// GLM session reports "Glm 5.2", which our prettifier renders the way the
+// vendor spells it ("GLM-5.2"). With neither id nor name the provider itself
+// names the model.
+func modelDisplayName(data *stdinData, prov provider.Provider) string {
+	if name := strings.TrimSpace(data.Model.DisplayName); name != "" && foldModelName(name) != foldModelName(data.Model.ID) {
+		return name
+	}
+
+	if id := strings.TrimSpace(data.Model.ID); id != "" {
+		return prettifyModelID(id)
+	}
+
+	if prov == provider.Zai {
+		return glmFamilyDisplay
+	}
+
+	return "Claude"
+}
+
+// nameSeparators fold onto a dash so a name and the id it was derived from
+// compare equal regardless of cosmetic spelling.
+var nameSeparators = strings.NewReplacer(" ", "-", "_", "-", ".", "-")
+
+// foldModelName lowercases a model name and folds its separators to dashes.
+func foldModelName(raw string) string {
+	return nameSeparators.Replace(strings.ToLower(strings.TrimSpace(raw)))
+}
+
+// modelAcronyms are id tokens the vendor spells in caps rather than title case.
+var modelAcronyms = map[string]string{
+	glmFamily: glmFamilyDisplay,
+}
+
+// prettifyModelID renders a model id for display: tokens split on separators,
+// known acronyms upper-cased (glm-5.2 → GLM-5.2), the rest title-cased
+// (glm-4.5-air → GLM-4.5-Air). Version and number tokens pass through since
+// they carry no letters to case.
+func prettifyModelID(id string) string {
+	tokens := strings.FieldsFunc(id, func(r rune) bool {
+		return r == '-' || r == '_' || r == ' '
+	})
+
+	for i, token := range tokens {
+		if upper, ok := modelAcronyms[strings.ToLower(token)]; ok {
+			tokens[i] = upper
+
+			continue
+		}
+
+		tokens[i] = titleCaseToken(token)
+	}
+
+	return strings.Join(tokens, "-")
+}
+
+// titleCaseToken upper-cases the first letter and lower-cases the rest.
+func titleCaseToken(token string) string {
+	if token == "" {
+		return token
+	}
+
+	runes := []rune(strings.ToLower(token))
+	runes[0] = unicode.ToUpper(runes[0])
+
+	return string(runes)
 }
 
 // modelSubIcons returns the qualifier icons shown to the right of the model
@@ -592,12 +695,18 @@ func effortIndicator(level string) string {
 }
 
 // appendCostAndStatusSegments adds cost and platform status segments.
-func appendCostAndStatusSegments(segments []string, data *stdinData, cfg *config.Config) []string {
-	if shouldShowCost(cfg.Segments.Cost, data.RateLimits.FiveHour != nil || data.RateLimits.SevenDay != nil) {
+func appendCostAndStatusSegments(segments []string, data *stdinData, cfg *config.Config, prov provider.Provider) []string {
+	// A GLM Coding Plan session is quota-metered like a subscription, and the
+	// harness's cost figure knows no GLM pricing anyway — auto hides it there.
+	isSubscriber := data.RateLimits.FiveHour != nil || data.RateLimits.SevenDay != nil || prov == provider.Zai
+
+	if shouldShowCost(cfg.Segments.Cost, isSubscriber) {
 		segments = append(segments, fmtutil.Part(fmt.Sprintf("$%.2f", data.Cost.TotalCostUSD), "💰"))
 	}
 
-	if cfg.Segments.Status {
+	// The platform-status feed tracks Anthropic's endpoint; fetching it while
+	// on another provider would report the wrong platform's health.
+	if cfg.Segments.Status && prov == provider.Anthropic {
 		if alert := status.FetchAlert(); alert != "" {
 			segments = append(segments, alert)
 		}
@@ -691,7 +800,8 @@ func promptCacheCause(cause *stdinMissCause) string {
 }
 
 // shouldShowCost determines whether to display the cost segment.
-// In "auto" mode, cost is hidden for subscribers (who have rate_limits).
+// In "auto" mode, cost is hidden for quota-metered sessions: subscribers
+// (whose stdin carries rate_limits) and GLM Coding Plan users.
 func shouldShowCost(mode string, isSubscriber bool) bool {
 	switch mode {
 	case config.CostOn:
@@ -819,12 +929,64 @@ func appendQuotaWindows(segments []string, data *fmtutil.Data, perModel []fmtuti
 	return appendWindowSegments(segments, data, perModel, fmtutil.FormatQuotaWindow)
 }
 
-func appendUsageSegments(segments []string, data *stdinData, cfg *config.Config) []string {
+func appendUsageSegments(segments []string, data *stdinData, cfg *config.Config, prov provider.Provider) []string {
 	if cfg.MacInsecure {
 		return appendInsecureUsageSegments(segments, data, cfg)
 	}
 
+	if prov == provider.Zai {
+		return appendZaiUsageSegments(segments, cfg)
+	}
+
 	return appendStdinUsageSegments(segments, data, cfg)
+}
+
+// appendZaiUsageSegments builds quota segments from the Z.ai monitor API.
+// The stdin rate_limits are an Anthropic-subscriber field and stay empty on
+// Z.ai; the plan's 5-hour and weekly windows come from the monitor endpoint
+// instead, authenticated with the same API key Claude Code itself uses. The
+// monitor reports no per-model buckets, so no selector runs on this path.
+func appendZaiUsageSegments(segments []string, cfg *config.Config) []string {
+	if !cfg.Segments.Quota {
+		return segments
+	}
+
+	key := provider.APIKey()
+	if key == "" {
+		// Provider detected but no key to query with: nothing to render, and
+		// permanent placeholders would be noise rather than information.
+		return segments
+	}
+
+	root := provider.ServerRoot(os.Getenv("ANTHROPIC_BASE_URL"))
+	if root == "" {
+		root = defaultZaiRoot
+	}
+
+	usageData, err := zai.Fetch(root, key)
+
+	// Fetch failures and monitor-endpoint throttling render last-good data: a
+	// 429 from the monitor says we asked too often, not that the plan's quota
+	// is exhausted, so no limit-hit segment is shown for it.
+	if err != nil || usageData.ErrorType == "rate_limit_error" {
+		return appendStaleZaiQuotaWindows(segments, zai.FetchLastGood())
+	}
+
+	if usageData.ErrorType == "authentication_error" {
+		return append(segments, fmtutil.Part("key invalid", "⚠️"))
+	}
+
+	return appendQuotaWindows(segments, usageData, nil)
+}
+
+// appendStaleZaiQuotaWindows renders the Z.ai last-good quota data, or
+// placeholders when no good sample was ever taken.
+func appendStaleZaiQuotaWindows(segments []string, lastGood *fmtutil.Data) []string {
+	if lastGood == nil {
+		return append(segments, fmtutil.Part("7d: ?% (?d)", "⏳"), fmtutil.Part("5h: ?% (?h)", "⏳"))
+	}
+
+	return appendWindowSegments(segments, lastGood, nil, fmtutil.FormatStaleQuotaWindow)
 }
 
 // appendStdinUsageSegments builds quota segments from stdin rate_limits (default, secure path).

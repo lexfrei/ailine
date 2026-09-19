@@ -14,8 +14,10 @@ import (
 	"github.com/lexfrei/claudeline/internal/fmtutil"
 	"github.com/lexfrei/claudeline/internal/httpclient"
 	"github.com/lexfrei/claudeline/internal/keychain"
+	"github.com/lexfrei/claudeline/internal/provider"
 	"github.com/lexfrei/claudeline/internal/status"
 	"github.com/lexfrei/claudeline/internal/usage"
+	"github.com/lexfrei/claudeline/internal/zai"
 )
 
 const (
@@ -51,6 +53,16 @@ func setupTestEnv(t *testing.T) func() {
 	t.Setenv("COLUMNS", "sentinel")
 	os.Unsetenv("COLUMNS")
 
+	// Provider detection reads the API endpoint configuration, and quota
+	// rendering reads the API key. A developer machine running Claude Code on
+	// GLM exports both, which would silently flip these tests onto the Z.ai
+	// path — pin them to the Anthropic defaults; the GLM tests opt back in
+	// with t.Setenv.
+	for _, name := range []string{"ANTHROPIC_BASE_URL", "ANTHROPIC_AUTH_TOKEN", "ZAI_API_KEY", "GLM_API_KEY"} {
+		t.Setenv(name, "sentinel")
+		os.Unsetenv(name)
+	}
+
 	dir := t.TempDir()
 
 	origStatusPath := status.CachePath
@@ -63,12 +75,22 @@ func setupTestEnv(t *testing.T) func() {
 	origToken := keychain.GetFn
 	origStatusTTL := status.CacheTTL
 	origUsageTTL := usage.CacheTTL
+	origZaiCachePath := zai.CachePath
+	origZaiLastGoodPath := zai.LastGoodCachePath
+	origZaiRetryAfterPath := zai.RetryAfterPath
+	origZaiAuthFailPath := zai.AuthFailPath
+	origZaiHTTP := zai.HTTPGetFn
+	origZaiTTL := zai.CacheTTL
 
 	status.CachePath = filepath.Join(dir, "status-cache.json")
 	usage.CachePath = filepath.Join(dir, "usage-cache.json")
 	usage.LastGoodCachePath = filepath.Join(dir, "usage-last-good.json")
 	usage.RetryAfterPath = filepath.Join(dir, "retry-after")
 	usage.AuthFailPath = filepath.Join(dir, "auth-failed")
+	zai.CachePath = filepath.Join(dir, "zai-usage-cache.json")
+	zai.LastGoodCachePath = filepath.Join(dir, "zai-usage-last-good.json")
+	zai.RetryAfterPath = filepath.Join(dir, "zai-retry-after")
+	zai.AuthFailPath = filepath.Join(dir, "zai-auth-failed")
 
 	return func() {
 		status.CachePath = origStatusPath
@@ -81,6 +103,12 @@ func setupTestEnv(t *testing.T) func() {
 		keychain.GetFn = origToken
 		status.CacheTTL = origStatusTTL
 		usage.CacheTTL = origUsageTTL
+		zai.CachePath = origZaiCachePath
+		zai.LastGoodCachePath = origZaiLastGoodPath
+		zai.RetryAfterPath = origZaiRetryAfterPath
+		zai.AuthFailPath = origZaiAuthFailPath
+		zai.HTTPGetFn = origZaiHTTP
+		zai.CacheTTL = origZaiTTL
 	}
 }
 
@@ -1031,7 +1059,7 @@ func TestAppendUsageSegmentsLoginNeeded(t *testing.T) {
 		}, nil
 	}
 
-	segments := appendUsageSegments(nil, &stdinData{}, insecureCfg())
+	segments := appendUsageSegments(nil, &stdinData{}, insecureCfg(), provider.Anthropic)
 	joined := strings.Join(segments, " | ")
 
 	if !strings.Contains(joined, "⚠️ /login needed") {
@@ -1062,7 +1090,7 @@ func TestAppendUsageSegmentsRateLimited(t *testing.T) {
 		}, nil
 	}
 
-	segments := appendUsageSegments(nil, &stdinData{}, insecureCfg())
+	segments := appendUsageSegments(nil, &stdinData{}, insecureCfg(), provider.Anthropic)
 	joined := strings.Join(segments, " | ")
 
 	if strings.Contains(joined, "/login needed") {
@@ -1096,7 +1124,7 @@ func TestAppendUsageSegmentsSuccess(t *testing.T) {
 		}, nil
 	}
 
-	segments := appendUsageSegments(nil, &stdinData{}, insecureCfg())
+	segments := appendUsageSegments(nil, &stdinData{}, insecureCfg(), provider.Anthropic)
 	joined := strings.Join(segments, " | ")
 
 	if !strings.Contains(joined, "7d: 45%") {
@@ -1135,7 +1163,7 @@ func TestAppendUsageSegmentsPerModel(t *testing.T) {
 	cfg := insecureCfg()
 	cfg.Segments.PerModelQuota = config.PerModelAll
 
-	segments := appendUsageSegments(nil, &stdinData{}, cfg)
+	segments := appendUsageSegments(nil, &stdinData{}, cfg, provider.Anthropic)
 	joined := strings.Join(segments, " | ")
 
 	if !strings.Contains(joined, "7d: 45%") {
@@ -1159,7 +1187,7 @@ func TestAppendUsageSegmentsPerModel(t *testing.T) {
 	}
 
 	// Verify per-model windows are hidden by default.
-	segmentsDefault := appendUsageSegments(nil, &stdinData{}, insecureCfg())
+	segmentsDefault := appendUsageSegments(nil, &stdinData{}, insecureCfg(), provider.Anthropic)
 	joinedDefault := strings.Join(segmentsDefault, " | ")
 
 	if strings.Contains(joinedDefault, "7d-opus") {
