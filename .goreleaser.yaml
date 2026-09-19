@@ -7,6 +7,7 @@ builds:
       - CGO_ENABLED=0
     goos:
       - darwin
+      - linux
     goarch:
       - amd64
       - arm64
@@ -20,6 +21,22 @@ builds:
 archives:
   - formats: [tar.gz]
     name_template: "{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}"
+
+nfpms:
+  - formats: [deb]
+    # GoReleaser's default puts the OS in the name, which no Debian tool
+    # expects: the archive is what carries a platform, a .deb carries an
+    # architecture.
+    file_name_template: "{{ .PackageName }}_{{ .Version }}_{{ .Arch }}"
+    vendor: lexfrei
+    homepage: "https://github.com/lexfrei/claudeline"
+    maintainer: Aleksei Sviridkin <f@lex.la>
+    description: Real-time statusline for Claude Code
+    license: BSD-3-Clause
+    section: utils
+    contents:
+      - src: LICENSE
+        dst: /usr/share/doc/claudeline/copyright
 
 brews:
   - repository:

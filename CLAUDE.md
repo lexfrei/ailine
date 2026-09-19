@@ -29,9 +29,10 @@ Strict sequential flow, each step depends on the previous one succeeding.
 Tag push triggers CI release job:
 
 - Lint → Test → Build → GoReleaser
-- GoReleaser builds darwin/amd64 + darwin/arm64 binaries
-- Creates GitHub release with binaries and checksums
+- GoReleaser builds darwin + linux binaries for amd64 and arm64
+- Creates GitHub release with binaries, `.deb` packages and checksums
 - Updates Homebrew tap (`lexfrei/homebrew-tap`)
+- The apt repository (`lexfrei/apt`) picks the `.deb` up on its next run
 
 ### 5. Update release notes (manual)
 
