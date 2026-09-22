@@ -107,3 +107,10 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           HOMEBREW_TAP_GITHUB_TOKEN: ${{ secrets.HOMEBREW_TAP_GITHUB_TOKEN }}
+
+      # lexfrei/apt only rebuilds when told to, so a release that skips this
+      # never reaches the apt repository.
+      - name: Notify the apt repository
+        env:
+          GH_TOKEN: ${{ secrets.APT_DISPATCH_TOKEN }}
+        run: gh api --method POST repos/lexfrei/apt/dispatches --field event_type=release
