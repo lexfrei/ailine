@@ -1746,12 +1746,12 @@ func TestBuildStatuslineLinksRepoAndPR(t *testing.T) {
 
 	got := buildStatusline([]byte(input), defaultCfg())
 
-	wantRepo := "\x1b]8;;https://github.com/lexfrei/claudeline\x07🐙 lexfrei/claudeline\x1b]8;;\x07"
+	wantRepo := "🐙 \x1b]8;;https://github.com/lexfrei/claudeline\x07lexfrei/claudeline\x1b]8;;\x07"
 	if !strings.Contains(got, wantRepo) {
 		t.Errorf("expected linked repo %q in %q", wantRepo, got)
 	}
 
-	wantPR := "\x1b]8;;https://github.com/lexfrei/claudeline/pull/42\x07✅ #42\x1b]8;;\x07"
+	wantPR := "✅ \x1b]8;;https://github.com/lexfrei/claudeline/pull/42\x07#42\x1b]8;;\x07"
 	if !strings.Contains(got, wantPR) {
 		t.Errorf("expected linked PR %q in %q", wantPR, got)
 	}
@@ -1793,7 +1793,7 @@ func TestBuildStatuslineLinksSelfHostedRepo(t *testing.T) {
 
 	got := buildStatusline([]byte(input), defaultCfg())
 
-	want := "\x1b]8;;https://git.example.com/o/r\x07📦 git.example.com/o/r\x1b]8;;\x07"
+	want := "📦 \x1b]8;;https://git.example.com/o/r\x07git.example.com/o/r\x1b]8;;\x07"
 	if !strings.Contains(got, want) {
 		t.Errorf("expected linked repo %q in %q", want, got)
 	}

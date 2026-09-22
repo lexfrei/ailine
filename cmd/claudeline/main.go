@@ -472,7 +472,7 @@ func formatRepoSegment(data *stdinData) string {
 	repo := data.Workspace.Repo
 	icon, prefix := repoHostIcon(repo.Host)
 
-	parts := []string{fmtutil.Link(fmtutil.Part(prefix+repo.Owner+"/"+repo.Name, icon), repoURL(repo))}
+	parts := []string{fmtutil.Part(fmtutil.Link(prefix+repo.Owner+"/"+repo.Name, repoURL(repo)), icon)}
 
 	if data.PR != nil && data.PR.Number > 0 {
 		sigil := "#"
@@ -480,12 +480,12 @@ func formatRepoSegment(data *stdinData) string {
 			sigil = "!"
 		}
 
-		number := fmt.Sprintf("%s%d", sigil, data.PR.Number)
+		number := fmtutil.Link(fmt.Sprintf("%s%d", sigil, data.PR.Number), data.PR.URL)
 		if state := prReviewIcon(data.PR.ReviewState); state != "" {
 			number = fmtutil.Part(number, state)
 		}
 
-		parts = append(parts, fmtutil.Link(number, data.PR.URL))
+		parts = append(parts, number)
 	}
 
 	parts = append(parts, worktreeBranchParts(data)...)
