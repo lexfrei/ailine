@@ -1411,15 +1411,32 @@ func TestApplyFlagOverrides(t *testing.T) {
 }
 
 func TestDefaultConfigPath(t *testing.T) {
-	t.Parallel()
-
-	got := defaultConfigPath()
-	if got == "" {
-		t.Skip("could not determine home directory")
+	tests := []struct {
+		name  string
+		files []string
+		want  string
+	}{
+		{"no config at all", nil, configFileName},
+		{"only the new one", []string{configFileName}, configFileName},
+		{"only the old one", []string{legacyConfigFileName}, legacyConfigFileName},
+		{"both, new wins", []string{configFileName, legacyConfigFileName}, configFileName},
 	}
 
-	if !strings.HasSuffix(got, ".claudelinerc.toml") {
-		t.Errorf("expected path ending with .claudelinerc.toml, got %q", got)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			home := t.TempDir()
+			t.Setenv("HOME", home)
+
+			for _, name := range tt.files {
+				if err := os.WriteFile(filepath.Join(home, name), nil, 0o600); err != nil {
+					t.Fatal(err)
+				}
+			}
+
+			if got, want := defaultConfigPath(), filepath.Join(home, tt.want); got != want {
+				t.Errorf("got %q, want %q", got, want)
+			}
+		})
 	}
 }
 

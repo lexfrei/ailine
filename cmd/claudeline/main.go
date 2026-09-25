@@ -100,13 +100,34 @@ type stdinData struct {
 	} `json:"rate_limits"` //nolint:tagliatelle // External API format
 }
 
+const (
+	configFileName = ".ailinerc.toml"
+	// legacyConfigFileName is the name from before the rename from
+	// claudeline, still read so an existing setup keeps working unmoved.
+	legacyConfigFileName = ".claudelinerc.toml"
+)
+
 func defaultConfigPath() string {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return ""
 	}
 
-	return filepath.Join(home, ".claudelinerc.toml")
+	current := filepath.Join(home, configFileName)
+
+	_, err = os.Stat(current)
+	if err == nil {
+		return current
+	}
+
+	legacy := filepath.Join(home, legacyConfigFileName)
+
+	_, err = os.Stat(legacy)
+	if err == nil {
+		return legacy
+	}
+
+	return current
 }
 
 func newRootCmd() *cobra.Command {
