@@ -39,9 +39,20 @@ nfpms:
     contents:
       - src: LICENSE
         dst: /usr/share/doc/ailine/copyright
+      # Owned here rather than by the transitional package: apt marks that one
+      # auto-installed, so autoremove would take the old command name with it.
+      - src: ailine
+        dst: /usr/bin/claudeline
+        type: symlink
+    # claudeline 1.11.0 shipped the symlink itself.
+    replaces:
+      - claudeline (<< 1.11.1)
+    deb:
+      breaks:
+        - claudeline (<< 1.11.1)
 
   # The project was called claudeline. This empty package upgrades the old
-  # one in place, pulls ailine in, and keeps the old command name working.
+  # one in place and pulls ailine in.
   - id: claudeline-transitional
     package_name: claudeline
     meta: true
@@ -55,10 +66,6 @@ nfpms:
     section: oldlibs
     dependencies:
       - ailine
-    contents:
-      - src: ailine
-        dst: /usr/bin/claudeline
-        type: symlink
 
 brews:
   - name: ailine
