@@ -93,7 +93,7 @@ linters:
         text: "dot-imports"
         linters:
           - revive
-      - path: cmd/claudeline/main\.go
+      - path: cmd/ailine/main\.go
         linters:
           - gochecknoglobals
           - forbidigo
@@ -103,7 +103,7 @@ linters:
       - path: internal/usage/types\.go
         linters:
           - tagliatelle
-      - path: cmd/claudeline/main\.go
+      - path: cmd/ailine/main\.go
         text: "tagliatelle"
         linters:
           - tagliatelle

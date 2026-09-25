@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/lexfrei/claudeline/internal/fmtutil"
-	"github.com/lexfrei/claudeline/internal/httpclient"
+	"github.com/lexfrei/ailine/internal/fmtutil"
+	"github.com/lexfrei/ailine/internal/httpclient"
 )
 
 var errTest = errors.New("test error")

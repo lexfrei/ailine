@@ -10,10 +10,10 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/lexfrei/claudeline/internal/config"
-	"github.com/lexfrei/claudeline/internal/httpclient"
-	"github.com/lexfrei/claudeline/internal/keychain"
-	"github.com/lexfrei/claudeline/internal/usage"
+	"github.com/lexfrei/ailine/internal/config"
+	"github.com/lexfrei/ailine/internal/httpclient"
+	"github.com/lexfrei/ailine/internal/keychain"
+	"github.com/lexfrei/ailine/internal/usage"
 )
 
 const (

@@ -13,7 +13,7 @@ import (
 // Both test packages (usage and usage_test) link into this binary, so one
 // TestMain covers them.
 func TestMain(m *testing.M) {
-	dir, err := os.MkdirTemp("", "claudeline-usage")
+	dir, err := os.MkdirTemp("", "ailine-usage")
 	if err != nil {
 		panic("creating temp dir for usage tests: " + err.Error())
 	}

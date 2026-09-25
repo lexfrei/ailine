@@ -72,8 +72,8 @@ func TestLinkRejectsUnusableURLs(t *testing.T) {
 func TestLinkKeepsVisualWidth(t *testing.T) {
 	withHyperlinks(t)
 
-	plain := "🐙 lexfrei/claudeline"
-	linked := Link(plain, "https://github.com/lexfrei/claudeline")
+	plain := "🐙 lexfrei/ailine"
+	linked := Link(plain, "https://github.com/lexfrei/ailine")
 
 	if got, want := VisualWidth(linked), VisualWidth(plain); got != want {
 		t.Errorf("VisualWidth(linked) = %d, want %d", got, want)

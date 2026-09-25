@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/lexfrei/claudeline/internal/usage"
+	"github.com/lexfrei/ailine/internal/usage"
 )
 
 // scopedBody mirrors the shape the Anthropic usage API returns: per-model quota

@@ -10,12 +10,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/lexfrei/claudeline/internal/config"
-	"github.com/lexfrei/claudeline/internal/fmtutil"
-	"github.com/lexfrei/claudeline/internal/httpclient"
-	"github.com/lexfrei/claudeline/internal/keychain"
-	"github.com/lexfrei/claudeline/internal/status"
-	"github.com/lexfrei/claudeline/internal/usage"
+	"github.com/lexfrei/ailine/internal/config"
+	"github.com/lexfrei/ailine/internal/fmtutil"
+	"github.com/lexfrei/ailine/internal/httpclient"
+	"github.com/lexfrei/ailine/internal/keychain"
+	"github.com/lexfrei/ailine/internal/status"
+	"github.com/lexfrei/ailine/internal/usage"
 )
 
 const (
@@ -273,23 +273,23 @@ func TestBuildStatuslineRepoSegment(t *testing.T) {
 	}{
 		{
 			name:     "github repo only",
-			input:    `{"workspace":{"repo":{"host":"github.com","owner":"lexfrei","name":"claudeline"}}}`,
-			expected: "🐙 lexfrei/claudeline",
+			input:    `{"workspace":{"repo":{"host":"github.com","owner":"lexfrei","name":"ailine"}}}`,
+			expected: "🐙 lexfrei/ailine",
 		},
 		{
 			name:     "github repo with branch fallback",
-			input:    `{"workspace":{"repo":{"host":"github.com","owner":"lexfrei","name":"claudeline"},"git_worktree":"feat-api"}}`,
-			expected: "🐙 lexfrei/claudeline 🌿 feat-api",
+			input:    `{"workspace":{"repo":{"host":"github.com","owner":"lexfrei","name":"ailine"},"git_worktree":"feat-api"}}`,
+			expected: "🐙 lexfrei/ailine 🌿 feat-api",
 		},
 		{
 			name:     "github repo with draft PR",
-			input:    `{"workspace":{"repo":{"host":"github.com","owner":"lexfrei","name":"claudeline"}},"pr":{"number":19,"review_state":"draft"}}`,
-			expected: "🐙 lexfrei/claudeline 📝 #19",
+			input:    `{"workspace":{"repo":{"host":"github.com","owner":"lexfrei","name":"ailine"}},"pr":{"number":19,"review_state":"draft"}}`,
+			expected: "🐙 lexfrei/ailine 📝 #19",
 		},
 		{
 			name:     "github repo with approved PR and branch",
-			input:    `{"workspace":{"repo":{"host":"github.com","owner":"lexfrei","name":"claudeline"},"git_worktree":"feat-api"},"pr":{"number":42,"review_state":"approved"}}`,
-			expected: "🐙 lexfrei/claudeline ✅ #42 🌿 feat-api",
+			input:    `{"workspace":{"repo":{"host":"github.com","owner":"lexfrei","name":"ailine"},"git_worktree":"feat-api"},"pr":{"number":42,"review_state":"approved"}}`,
+			expected: "🐙 lexfrei/ailine ✅ #42 🌿 feat-api",
 		},
 		{
 			name:     "changes_requested",
@@ -845,7 +845,7 @@ func TestBuildStatuslineWrapsOnNarrowColumns(t *testing.T) {
 		"model":{"display_name":"Opus 4.7"},
 		"effort":{"level":"xhigh"},
 		"thinking":{"enabled":true},
-		"workspace":{"repo":{"host":"github.com","owner":"lexfrei","name":"claudeline"}},
+		"workspace":{"repo":{"host":"github.com","owner":"lexfrei","name":"ailine"}},
 		"context_window":{"used_percentage":67},
 		"rate_limits":{
 			"five_hour":{"used_percentage":50,"resets_at":%f},
@@ -1547,7 +1547,7 @@ func TestBuildStatuslineTextThemeDropsEmoji(t *testing.T) {
 	useTextTheme(t)
 
 	input := `{"model":{"display_name":"Opus 4.7"},"effort":{"level":"xhigh"},"thinking":{"enabled":true},` +
-		`"workspace":{"repo":{"host":"github.com","owner":"lexfrei","name":"claudeline"}},` +
+		`"workspace":{"repo":{"host":"github.com","owner":"lexfrei","name":"ailine"}},` +
 		`"pr":{"number":19,"review_state":"changes_requested"}}`
 	got := buildStatusline([]byte(input), defaultCfg())
 
@@ -1557,7 +1557,7 @@ func TestBuildStatuslineTextThemeDropsEmoji(t *testing.T) {
 		}
 	}
 
-	for _, want := range []string{"Opus 4.7", "lexfrei/claudeline"} {
+	for _, want := range []string{"Opus 4.7", "lexfrei/ailine"} {
 		if !strings.Contains(got, want) {
 			t.Errorf("expected %q in %q", want, got)
 		}
@@ -1578,7 +1578,7 @@ func TestBuildStatuslineTextThemePlainNumber(t *testing.T) {
 	useTextTheme(t)
 
 	// draft carries 📝 (not a circle), so #19 stays plain text, no color.
-	input := `{"workspace":{"repo":{"host":"github.com","owner":"lexfrei","name":"claudeline"}},` +
+	input := `{"workspace":{"repo":{"host":"github.com","owner":"lexfrei","name":"ailine"}},` +
 		`"pr":{"number":19,"review_state":"draft"}}`
 	got := buildStatusline([]byte(input), defaultCfg())
 
@@ -1758,17 +1758,17 @@ func TestBuildStatuslineLinksRepoAndPR(t *testing.T) {
 
 	useHyperlinks(t)
 
-	input := `{"workspace":{"repo":{"host":"github.com","owner":"lexfrei","name":"claudeline"}},` +
-		`"pr":{"number":42,"url":"https://github.com/lexfrei/claudeline/pull/42","review_state":"approved"}}`
+	input := `{"workspace":{"repo":{"host":"github.com","owner":"lexfrei","name":"ailine"}},` +
+		`"pr":{"number":42,"url":"https://github.com/lexfrei/ailine/pull/42","review_state":"approved"}}`
 
 	got := buildStatusline([]byte(input), defaultCfg())
 
-	wantRepo := "🐙 \x1b]8;;https://github.com/lexfrei/claudeline\x07lexfrei/claudeline\x1b]8;;\x07"
+	wantRepo := "🐙 \x1b]8;;https://github.com/lexfrei/ailine\x07lexfrei/ailine\x1b]8;;\x07"
 	if !strings.Contains(got, wantRepo) {
 		t.Errorf("expected linked repo %q in %q", wantRepo, got)
 	}
 
-	wantPR := "✅ \x1b]8;;https://github.com/lexfrei/claudeline/pull/42\x07#42\x1b]8;;\x07"
+	wantPR := "✅ \x1b]8;;https://github.com/lexfrei/ailine/pull/42\x07#42\x1b]8;;\x07"
 	if !strings.Contains(got, wantPR) {
 		t.Errorf("expected linked PR %q in %q", wantPR, got)
 	}

@@ -12,10 +12,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/lexfrei/claudeline/internal/cache"
-	"github.com/lexfrei/claudeline/internal/fmtutil"
-	"github.com/lexfrei/claudeline/internal/httpclient"
-	"github.com/lexfrei/claudeline/internal/keychain"
+	"github.com/lexfrei/ailine/internal/cache"
+	"github.com/lexfrei/ailine/internal/fmtutil"
+	"github.com/lexfrei/ailine/internal/httpclient"
+	"github.com/lexfrei/ailine/internal/keychain"
 )
 
 // ErrUnexpectedStatus is returned when the usage API returns a non-200/401/429 status code.

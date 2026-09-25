@@ -3,7 +3,7 @@ package fmtutil_test
 import (
 	"testing"
 
-	"github.com/lexfrei/claudeline/internal/fmtutil"
+	"github.com/lexfrei/ailine/internal/fmtutil"
 )
 
 const (

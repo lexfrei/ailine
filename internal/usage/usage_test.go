@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/lexfrei/claudeline/internal/httpclient"
-	"github.com/lexfrei/claudeline/internal/keychain"
+	"github.com/lexfrei/ailine/internal/httpclient"
+	"github.com/lexfrei/ailine/internal/keychain"
 )
 
 const (
