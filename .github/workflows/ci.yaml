@@ -79,7 +79,7 @@ jobs:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
           CGO_ENABLED: "0"
-        run: go build -trimpath -ldflags="-s -w" -o claudeline ./cmd/claudeline
+        run: go build -trimpath -ldflags="-s -w" -o ailine ./cmd/ailine
 
   release:
     name: Release

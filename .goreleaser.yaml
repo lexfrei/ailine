@@ -1,8 +1,10 @@
 version: 2
 
+project_name: ailine
+
 builds:
-  - main: ./cmd/claudeline
-    binary: claudeline
+  - main: ./cmd/ailine
+    binary: ailine
     env:
       - CGO_ENABLED=0
     goos:
@@ -29,26 +31,48 @@ nfpms:
     # architecture.
     file_name_template: "{{ .PackageName }}_{{ .Version }}_{{ .Arch }}"
     vendor: lexfrei
-    homepage: "https://github.com/lexfrei/claudeline"
+    homepage: "https://github.com/lexfrei/ailine"
     maintainer: Aleksei Sviridkin <f@lex.la>
     description: Real-time statusline for Claude Code
     license: BSD-3-Clause
     section: utils
     contents:
       - src: LICENSE
-        dst: /usr/share/doc/claudeline/copyright
+        dst: /usr/share/doc/ailine/copyright
+
+  # The project was called claudeline. This empty package upgrades the old
+  # one in place, pulls ailine in, and keeps the old command name working.
+  - id: claudeline-transitional
+    package_name: claudeline
+    meta: true
+    formats: [deb]
+    file_name_template: "{{ .PackageName }}_{{ .Version }}_{{ .Arch }}"
+    vendor: lexfrei
+    homepage: "https://github.com/lexfrei/ailine"
+    maintainer: Aleksei Sviridkin <f@lex.la>
+    description: Transitional package, claudeline is now ailine
+    license: BSD-3-Clause
+    section: oldlibs
+    dependencies:
+      - ailine
+    contents:
+      - src: ailine
+        dst: /usr/bin/claudeline
+        type: symlink
 
 brews:
-  - repository:
+  - name: ailine
+    repository:
       owner: lexfrei
       name: homebrew-tap
       token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
     directory: Formula
-    homepage: "https://github.com/lexfrei/claudeline"
+    homepage: "https://github.com/lexfrei/ailine"
     description: "Real-time statusline for Claude Code"
     license: "BSD-3-Clause"
     install: |
-      bin.install "claudeline"
+      bin.install "ailine"
+      bin.install_symlink "ailine" => "claudeline"
 
 checksum:
   name_template: "checksums.txt"

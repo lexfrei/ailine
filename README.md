@@ -1,15 +1,19 @@
-# claudeline
+# ailine
 
-[![CI](https://github.com/lexfrei/claudeline/actions/workflows/ci.yaml/badge.svg)](https://github.com/lexfrei/claudeline/actions/workflows/ci.yaml)
-[![Go](https://img.shields.io/github/go-mod/go-version/lexfrei/claudeline)](https://go.dev/)
-[![License](https://img.shields.io/github/license/lexfrei/claudeline)](LICENSE)
+[![CI](https://github.com/lexfrei/ailine/actions/workflows/ci.yaml/badge.svg)](https://github.com/lexfrei/ailine/actions/workflows/ci.yaml)
+[![Go](https://img.shields.io/github/go-mod/go-version/lexfrei/ailine)](https://go.dev/)
+[![License](https://img.shields.io/github/license/lexfrei/ailine)](LICENSE)
 
 Real-time statusline for [Claude Code](https://docs.anthropic.com/en/docs/claude-code) showing live quota usage directly from stdin data.
+
+## Renamed from claudeline
+
+This project used to be called claudeline. Upgrading through Homebrew or `apt upgrade` moves an existing install to ailine, and the `claudeline` command stays available as a link to `ailine`, so a `statusLine` pointing at it keeps working. `~/.claudelinerc.toml` is still read when `~/.ailinerc.toml` does not exist. Plain `apt-get upgrade` holds the transitional `claudeline` package back because it needs a new package; run `apt upgrade` or `apt install ailine` instead.
 
 ## Example output
 
 ```text
-🤖 Opus 4.7 ⏫💭 | 🧠 67% | 🔄 2 | 🟡 7d: 42% (4d 2h) | 🔴 5h: 91% (27m) | 🐙 lexfrei/claudeline 📝 #19 🌳 feat-api 🌿 feat/api
+🤖 Opus 4.7 ⏫💭 | 🧠 67% | 🔄 2 | 🟡 7d: 42% (4d 2h) | 🔴 5h: 91% (27m) | 🐙 lexfrei/ailine 📝 #19 🌳 feat-api 🌿 feat/api
 ```
 
 ## Segments
@@ -73,7 +77,7 @@ Two kinds of state have no text form and are unavailable in this theme: the mode
 The same state as the example above, under `--theme text` (status shown here in **bold** to stand in for color):
 
 ```text
-Opus 4.7 | **67%** | 2 | **7d: 42% (4d 2h)** | **5h: 91% (27m)** | lexfrei/claudeline #19 feat-api feat/api
+Opus 4.7 | **67%** | 2 | **7d: 42% (4d 2h)** | **5h: 91% (27m)** | lexfrei/ailine #19 feat-api feat/api
 ```
 
 ### Auto-wrap on narrow terminals
@@ -129,7 +133,7 @@ Set via `--cost auto|true|false` or `cost = "auto"` in config.
 ### Homebrew
 
 ```bash
-brew install lexfrei/tap/claudeline
+brew install lexfrei/tap/ailine
 ```
 
 ### APT (Debian, Ubuntu)
@@ -146,7 +150,7 @@ Components: main
 Signed-By: /usr/share/keyrings/lexfrei.gpg
 EOF
 
-sudo apt update && sudo apt install claudeline
+sudo apt update && sudo apt install ailine
 ```
 
 Packages are built for `amd64` and `arm64`. The repository is [lexfrei/apt](https://github.com/lexfrei/apt).
@@ -154,13 +158,13 @@ Packages are built for `amd64` and `arm64`. The repository is [lexfrei/apt](http
 ### mise
 
 ```bash
-mise use -g aqua:lexfrei/claudeline
+mise use -g aqua:lexfrei/ailine
 ```
 
 ### From source
 
 ```bash
-go install github.com/lexfrei/claudeline/cmd/claudeline@latest
+go install github.com/lexfrei/ailine/cmd/ailine@latest
 ```
 
 ## Usage
@@ -171,13 +175,13 @@ Add the `statusLine` block to `~/.claude/settings.json`:
 {
   "statusLine": {
     "type": "command",
-    "command": "claudeline",
+    "command": "ailine",
     "padding": 0
   }
 }
 ```
 
-Claude Code pipes session data as JSON to stdin. claudeline reads it and outputs a formatted statusline string.
+Claude Code pipes session data as JSON to stdin. ailine reads it and outputs a formatted statusline string.
 
 Restart Claude Code after changing settings.
 
@@ -191,7 +195,7 @@ Set `refreshInterval` in `~/.claude/settings.json` to also re-run the command on
 {
   "statusLine": {
     "type": "command",
-    "command": "claudeline",
+    "command": "ailine",
     "padding": 0,
     "refreshInterval": 5
   }
@@ -200,7 +204,7 @@ Set `refreshInterval` in `~/.claude/settings.json` to also re-run the command on
 
 ## Configuration
 
-Optional config file at `~/.claudelinerc.toml`:
+Optional config file at `~/.ailinerc.toml`:
 
 ```toml
 theme = "emoji" # or "text"
@@ -227,15 +231,15 @@ status_ttl = "15s"
 
 Set any segment to `false` to hide it (`cost` and `per_model_quota` accept `"auto"`, `"true"`, `"false"`). The two top-level keys take their own values: `theme` accepts `"emoji"` or `"text"`, `hyperlinks` accepts `"auto"`, `"true"` or `"false"`.
 
-Run `claudeline validate --config ~/.claudelinerc.toml` to check your config for typos and invalid values.
+Run `ailine validate --config ~/.ailinerc.toml` to check your config for typos and invalid values.
 
 ### CLI flags
 
 Flags override config file settings:
 
 ```bash
-claudeline --cost false --no-status
-claudeline --config /path/to/config.toml
+ailine --cost false --no-status
+ailine --config /path/to/config.toml
 ```
 
 Available flags: `--theme`, `--hyperlinks`, `--no-model`, `--no-effort`, `--no-thinking`, `--no-fast-mode`, `--no-repo`, `--no-worktree`, `--cost`, `--no-status`, `--no-context`, `--no-prompt-cache`, `--no-compactions`, `--no-quota`, `--mac-insecure`, `--per-model-quota=auto|true|false`, `--no-credits`. The last two only take effect with `--mac-insecure`.
@@ -244,7 +248,7 @@ Available flags: `--theme`, `--hyperlinks`, `--no-model`, `--no-effort`, `--no-t
 
 ## Advanced: `--mac-insecure` mode
 
-For additional data not available in stdin, claudeline can access the Anthropic usage API directly via macOS Keychain. This gives you:
+For additional data not available in stdin, ailine can access the Anthropic usage API directly via macOS Keychain. This gives you:
 
 - Per-model 7-day quotas, including the buckets the API reports per model (Opus, Sonnet, Fable, …)
 - Extra credit usage (💳 segment)
@@ -254,7 +258,7 @@ Stdin carries only the account-wide 5-hour and 7-day windows, so per-model quota
 **Security note:** this mode reads your OAuth token from macOS Keychain. Only enable it if you understand the implications.
 
 ```bash
-claudeline --mac-insecure
+ailine --mac-insecure
 ```
 
 ```toml
@@ -284,7 +288,7 @@ usage_ttl = "10m"
 
 On the command line the value must be attached with `=`: `--per-model-quota=auto`, `--per-model-quota=true`, `--per-model-quota=false`. A bare `--per-model-quota` still means "every window", as it always did.
 
-Model buckets are named by the server, so a quota for a newly released model appears without a claudeline update.
+Model buckets are named by the server, so a quota for a newly released model appears without a ailine update.
 
 ## License
 

@@ -13,7 +13,7 @@ const wantPipeJoinABC = "a | b | c"
 // Sample labels reused across Part fixtures.
 const (
 	testPRNumber  = "#19"
-	testRepoSlug  = "lexfrei/claudeline"
+	testRepoSlug  = "lexfrei/ailine"
 	testModelName = "Opus 4.7"
 )
 

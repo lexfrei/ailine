@@ -1,4 +1,4 @@
-// Package main is the entry point for the claudeline CLI.
+// Package main is the entry point for the ailine CLI.
 package main
 
 import (
@@ -13,12 +13,12 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/lexfrei/claudeline/internal/compaction"
-	"github.com/lexfrei/claudeline/internal/config"
-	"github.com/lexfrei/claudeline/internal/fmtutil"
-	"github.com/lexfrei/claudeline/internal/gitinfo"
-	"github.com/lexfrei/claudeline/internal/status"
-	"github.com/lexfrei/claudeline/internal/usage"
+	"github.com/lexfrei/ailine/internal/compaction"
+	"github.com/lexfrei/ailine/internal/config"
+	"github.com/lexfrei/ailine/internal/fmtutil"
+	"github.com/lexfrei/ailine/internal/gitinfo"
+	"github.com/lexfrei/ailine/internal/status"
+	"github.com/lexfrei/ailine/internal/usage"
 )
 
 var (
@@ -100,13 +100,34 @@ type stdinData struct {
 	} `json:"rate_limits"` //nolint:tagliatelle // External API format
 }
 
+const (
+	configFileName = ".ailinerc.toml"
+	// legacyConfigFileName is the name from before the rename from
+	// claudeline, still read so an existing setup keeps working unmoved.
+	legacyConfigFileName = ".claudelinerc.toml"
+)
+
 func defaultConfigPath() string {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return ""
 	}
 
-	return filepath.Join(home, ".claudelinerc.toml")
+	current := filepath.Join(home, configFileName)
+
+	_, err = os.Stat(current)
+	if err == nil {
+		return current
+	}
+
+	legacy := filepath.Join(home, legacyConfigFileName)
+
+	_, err = os.Stat(legacy)
+	if err == nil {
+		return legacy
+	}
+
+	return current
 }
 
 func newRootCmd() *cobra.Command {
@@ -115,7 +136,7 @@ func newRootCmd() *cobra.Command {
 	cfg := config.Defaults()
 
 	rootCmd := &cobra.Command{
-		Use:     "claudeline",
+		Use:     "ailine",
 		Short:   "Real-time statusline for Claude Code",
 		Version: fmt.Sprintf("%s (%s)", version, commit),
 		Args:    cobra.NoArgs,
@@ -138,7 +159,7 @@ func newRootCmd() *cobra.Command {
 		applyRuntimeConfig(&cfg)
 	}
 
-	rootCmd.SetVersionTemplate("claudeline {{.Version}}\n")
+	rootCmd.SetVersionTemplate("ailine {{.Version}}\n")
 
 	flags := rootCmd.PersistentFlags()
 	flags.StringVar(&configPath, "config", defaultConfigPath(), "config file path")
@@ -217,7 +238,7 @@ func applyRuntimeConfig(cfg *config.Config) {
 
 	theme := config.NormalizeTheme(cfg.Theme)
 	if theme == "" {
-		fmt.Fprintf(os.Stderr, "claudeline: invalid theme %q, using emoji\n", cfg.Theme)
+		fmt.Fprintf(os.Stderr, "ailine: invalid theme %q, using emoji\n", cfg.Theme)
 
 		theme = config.ThemeEmoji
 	}
@@ -230,7 +251,7 @@ func applyRuntimeConfig(cfg *config.Config) {
 
 	hyperlinks := config.NormalizeHyperlinks(cfg.Hyperlinks)
 	if hyperlinks == "" {
-		fmt.Fprintf(os.Stderr, "claudeline: invalid hyperlinks mode %q, using auto\n", cfg.Hyperlinks)
+		fmt.Fprintf(os.Stderr, "ailine: invalid hyperlinks mode %q, using auto\n", cfg.Hyperlinks)
 
 		hyperlinks = config.HyperlinksAuto
 	}
@@ -277,7 +298,7 @@ func applyDisplayFlags(cmd *cobra.Command, cfg *config.Config) {
 	if raw, _ := cmd.PersistentFlags().GetString("cost"); flagSet(cmd, "cost") && raw != "" {
 		mode := config.NormalizeCostMode(raw)
 		if mode == "" {
-			fmt.Fprintf(os.Stderr, "claudeline: invalid cost mode %q, using auto\n", raw)
+			fmt.Fprintf(os.Stderr, "ailine: invalid cost mode %q, using auto\n", raw)
 
 			mode = config.CostAuto
 		}
@@ -328,7 +349,7 @@ func applyUsageFlags(cmd *cobra.Command, cfg *config.Config) {
 	if raw, _ := cmd.PersistentFlags().GetString("per-model-quota"); flagSet(cmd, "per-model-quota") && raw != "" {
 		mode := config.NormalizePerModelQuota(raw)
 		if mode == "" {
-			fmt.Fprintf(os.Stderr, "claudeline: invalid per-model quota mode %q, using auto\n", raw)
+			fmt.Fprintf(os.Stderr, "ailine: invalid per-model quota mode %q, using auto\n", raw)
 
 			mode = config.PerModelAuto
 		}
@@ -359,7 +380,7 @@ func buildStatusline(raw []byte, cfg *config.Config) string {
 
 	unmarshalErr := json.Unmarshal(raw, &data)
 	if unmarshalErr != nil && len(raw) > 0 {
-		fmt.Fprintf(os.Stderr, "claudeline: stdin parse error: %v\n", unmarshalErr)
+		fmt.Fprintf(os.Stderr, "ailine: stdin parse error: %v\n", unmarshalErr)
 	}
 
 	var segments []string

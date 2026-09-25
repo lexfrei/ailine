@@ -147,7 +147,7 @@ type Cache struct {
 	StatusTTL time.Duration `mapstructure:"status_ttl"`
 }
 
-// Config holds all claudeline configuration.
+// Config holds all ailine configuration.
 type Config struct {
 	Segments    Segments `mapstructure:"segments"`
 	Cache       Cache    `mapstructure:"cache"`
@@ -210,21 +210,21 @@ func Load(configPath string) Config {
 
 	unmarshalErr := viperInstance.Unmarshal(&cfg)
 	if unmarshalErr != nil {
-		fmt.Fprintf(os.Stderr, "claudeline: config parse error: %v\n", unmarshalErr)
+		fmt.Fprintf(os.Stderr, "ailine: config parse error: %v\n", unmarshalErr)
 
 		return Defaults()
 	}
 
 	cfg.Segments.Cost = NormalizeCostMode(cfg.Segments.Cost)
 	if cfg.Segments.Cost == "" {
-		fmt.Fprintf(os.Stderr, "claudeline: invalid cost mode %q, using auto\n", viperInstance.GetString("segments.cost"))
+		fmt.Fprintf(os.Stderr, "ailine: invalid cost mode %q, using auto\n", viperInstance.GetString("segments.cost"))
 
 		cfg.Segments.Cost = CostAuto
 	}
 
 	cfg.Segments.PerModelQuota = NormalizePerModelQuota(cfg.Segments.PerModelQuota)
 	if cfg.Segments.PerModelQuota == "" {
-		fmt.Fprintf(os.Stderr, "claudeline: invalid per-model quota mode %q, using auto\n",
+		fmt.Fprintf(os.Stderr, "ailine: invalid per-model quota mode %q, using auto\n",
 			viperInstance.GetString("segments.per_model_quota"))
 
 		cfg.Segments.PerModelQuota = PerModelAuto
@@ -232,14 +232,14 @@ func Load(configPath string) Config {
 
 	cfg.Theme = NormalizeTheme(cfg.Theme)
 	if cfg.Theme == "" {
-		fmt.Fprintf(os.Stderr, "claudeline: invalid theme %q, using emoji\n", viperInstance.GetString("theme"))
+		fmt.Fprintf(os.Stderr, "ailine: invalid theme %q, using emoji\n", viperInstance.GetString("theme"))
 
 		cfg.Theme = ThemeEmoji
 	}
 
 	cfg.Hyperlinks = NormalizeHyperlinks(cfg.Hyperlinks)
 	if cfg.Hyperlinks == "" {
-		fmt.Fprintf(os.Stderr, "claudeline: invalid hyperlinks mode %q, using auto\n",
+		fmt.Fprintf(os.Stderr, "ailine: invalid hyperlinks mode %q, using auto\n",
 			viperInstance.GetString("hyperlinks"))
 
 		cfg.Hyperlinks = HyperlinksAuto

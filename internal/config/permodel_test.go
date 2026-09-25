@@ -6,7 +6,7 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/lexfrei/claudeline/internal/config"
+	"github.com/lexfrei/ailine/internal/config"
 )
 
 // badValue is a value no mode option accepts.
@@ -78,7 +78,7 @@ func TestLoadPerModelQuotaBooleanCompat(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			path := filepath.Join(t.TempDir(), "claudelinerc.toml")
+			path := filepath.Join(t.TempDir(), "ailinerc.toml")
 			if err := os.WriteFile(path, []byte(tt.body), 0o600); err != nil {
 				t.Fatalf("writing config: %v", err)
 			}
@@ -122,7 +122,7 @@ func TestNormalizeCostModeBoolSpellings(t *testing.T) {
 func TestLoadInvalidPerModelQuotaFallsBackToAuto(t *testing.T) {
 	t.Parallel()
 
-	path := filepath.Join(t.TempDir(), "claudelinerc.toml")
+	path := filepath.Join(t.TempDir(), "ailinerc.toml")
 	if err := os.WriteFile(path, []byte("[segments]\nper_model_quota = \"sometimes\"\n"), 0o600); err != nil {
 		t.Fatalf("writing config: %v", err)
 	}
@@ -141,7 +141,7 @@ func TestValidateAcceptsLegacyBooleanPerModelQuota(t *testing.T) {
 		"[segments]\nper_model_quota = true\n",
 		"[segments]\nper_model_quota = false\n",
 	} {
-		path := filepath.Join(t.TempDir(), "claudelinerc.toml")
+		path := filepath.Join(t.TempDir(), "ailinerc.toml")
 		if err := os.WriteFile(path, []byte(body), 0o600); err != nil {
 			t.Fatalf("writing config: %v", err)
 		}
@@ -155,7 +155,7 @@ func TestValidateAcceptsLegacyBooleanPerModelQuota(t *testing.T) {
 func TestValidateRejectsUnknownPerModelQuota(t *testing.T) {
 	t.Parallel()
 
-	path := filepath.Join(t.TempDir(), "claudelinerc.toml")
+	path := filepath.Join(t.TempDir(), "ailinerc.toml")
 	if err := os.WriteFile(path, []byte("[segments]\nper_model_quota = \"sometimes\"\n"), 0o600); err != nil {
 		t.Fatalf("writing config: %v", err)
 	}

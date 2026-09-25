@@ -1,4 +1,4 @@
-module github.com/lexfrei/claudeline
+module github.com/lexfrei/ailine
 
 go 1.27.1
 

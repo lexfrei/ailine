@@ -32,7 +32,7 @@ Tag push triggers CI release job:
 - GoReleaser builds darwin + linux binaries for amd64 and arm64
 - Creates GitHub release with binaries, `.deb` packages and checksums
 - Updates Homebrew tap (`lexfrei/homebrew-tap`)
-- The apt repository (`lexfrei/apt`) picks the `.deb` up on its next run
+- The release job sends `lexfrei/apt` a dispatch, which rebuilds the apt repository with the new `.deb` files
 
 ### 5. Update release notes (manual)
 
@@ -52,10 +52,10 @@ Include code examples for new options:
 **CLI flag:**
 
 ```bash
-claudeline --new-flag
+ailine --new-flag
 ```
 
-**Config file** (`~/.claudelinerc.toml`):
+**Config file** (`~/.ailinerc.toml`):
 
 ```toml
 [segments]
@@ -67,7 +67,7 @@ new_option = true
 - Bullet list of smaller changes
 - Focus on user-visible behavior, not implementation details
 
-**Full Changelog**: https://github.com/lexfrei/claudeline/compare/vPREV...vX.Y.Z
+**Full Changelog**: https://github.com/lexfrei/ailine/compare/vPREV...vX.Y.Z
 EOF
 )"
 ```
