@@ -40,7 +40,7 @@ const (
 )
 
 // knownHarnessPayloadFields pins the snake_case field names of the statusline
-// stdin payload as of Claude Code 2.1.270. On mismatch, re-verify the schema
+// stdin payload as of Claude Code 2.1.288. On mismatch, re-verify the schema
 // against cmd/ailine/main.go's stdinData (new fields may deserve a
 // segment; renames need a parser change), then update this list.
 func knownHarnessPayloadFields() []string {
@@ -72,6 +72,7 @@ func knownHarnessPayloadFields() []string {
 		"last_miss_at",
 		"last_miss_cause",
 		"level",
+		"limit_usd",
 		"miss_causes",
 		"miss_recache_tokens",
 		"misses",
@@ -83,6 +84,7 @@ func knownHarnessPayloadFields() []string {
 		"original_cwd",
 		"output_style",
 		"path",
+		"period",
 		"permission_mode",
 		"pr",
 		"project_dir",
@@ -113,6 +115,7 @@ func knownHarnessPayloadFields() []string {
 		"ttl",
 		"url",
 		"used_percentage",
+		"used_usd",
 		"version",
 		"vim",
 		"warm",
