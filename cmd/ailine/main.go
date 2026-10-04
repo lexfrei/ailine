@@ -63,8 +63,13 @@ type stdinPromptCache struct {
 	// CachingObserved reports whether any response this session carried cache
 	// tokens. False means prompt caching is off, or the provider or gateway
 	// does not report it.
-	CachingObserved bool            `json:"caching_observed"` //nolint:tagliatelle // External API format
-	LastMissCause   *stdinMissCause `json:"last_miss_cause"`  //nolint:tagliatelle // External API format
+	CachingObserved bool `json:"caching_observed"` //nolint:tagliatelle // External API format
+	// CacheWriteTokens counts metered cache writes over the session. Providers
+	// with automatic server-side caching (kimi) report reads but never a write,
+	// so a present zero marks "no Anthropic-style cache to go cold". A nil
+	// (older harness) keeps the marker rather than suppressing it blindly.
+	CacheWriteTokens *float64        `json:"cache_write_tokens"` //nolint:tagliatelle // External API format
+	LastMissCause    *stdinMissCause `json:"last_miss_cause"`    //nolint:tagliatelle // External API format
 }
 
 type stdinData struct {
@@ -650,9 +655,12 @@ func appendContextSegments(segments []string, data *stdinData, cfg *config.Confi
 // segment. A warm cache is the normal state and says nothing. Without
 // CachingObserved the provider never reported cache tokens at all, so Warm
 // stays false for the whole session and the marker would be permanent
-// furniture rather than a signal.
+// furniture rather than a signal. A provider that never meters a cache write
+// (CacheWriteTokens held at zero) has no recache cost for the marker to warn
+// about; the harness flips Warm on its own TTL clock regardless.
 func shouldShowPromptCache(cache *stdinPromptCache) bool {
-	return cache != nil && cache.CachingObserved && !cache.Warm
+	return cache != nil && cache.CachingObserved && !cache.Warm &&
+		(cache.CacheWriteTokens == nil || *cache.CacheWriteTokens > 0)
 }
 
 // promptCacheCauseLabels shortens the harness's cache-miss cause names to one

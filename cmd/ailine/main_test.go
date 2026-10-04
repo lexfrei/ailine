@@ -1591,6 +1591,9 @@ func TestBuildStatuslineTextThemePlainNumber(t *testing.T) {
 	}
 }
 
+// coldCacheTTL is the segment rendered for both TTL-expiry causes.
+const coldCacheTTL = "🧊 ttl"
+
 // promptCacheSegmentOf returns the statusline's prompt cache segment on its own,
 // empty when there is none. Matching the whole segment is what lets these cases
 // separate "🧊 tools" from "🧊 tools+" and from a bare "🧊" — a substring check
@@ -1644,8 +1647,8 @@ func TestPromptCacheSegmentShowsCause(t *testing.T) {
 		want  string
 	}{
 		{"tool set changed", `{"causes":["tools_changed"],"tools_added":2}`, "🧊 tools"},
-		{"idle past the 5m TTL", `{"causes":["ttl_expired_5m"]}`, "🧊 ttl"},
-		{"idle past the 1h TTL", `{"causes":["ttl_expired_1h"]}`, "🧊 ttl"},
+		{"idle past the 5m TTL", `{"causes":["ttl_expired_5m"]}`, coldCacheTTL},
+		{"idle past the 1h TTL", `{"causes":["ttl_expired_1h"]}`, coldCacheTTL},
 		{"effort switched", `{"causes":["effort_changed"]}`, "🧊 effort"},
 		{"usage limits", `{"causes":["overage_changed"]}`, "🧊 limits"},
 		{"nothing local changed", `{"causes":["likely_server_side"]}`, "🧊 server"},
@@ -1687,6 +1690,50 @@ func TestPromptCacheSegmentSilentWithoutCaching(t *testing.T) {
 
 	if strings.Contains(got, "🧊") {
 		t.Errorf("expected no prompt cache segment when caching is not observed, got %q", got)
+	}
+}
+
+// A provider that reports cache reads but never a single cache write (kimi's
+// automatic context cache works this way) has no Anthropic-style cache to go
+// cold: the harness still flips warm on its own TTL clock, and the marker would
+// fire on every idle period without a recache cost existing at all. Absence of
+// the field means an older harness, which keeps the marker.
+func TestPromptCacheSegmentSilentWithoutMeteredWrites(t *testing.T) {
+	cleanup := setupTestEnv(t)
+	defer cleanup()
+
+	status.HTTPGetFn = failHTTP
+
+	got := buildStatusline(promptCacheInput(t,
+		`{"warm":false,"caching_observed":true,"cache_write_tokens":0,"misses":3,"last_miss_cause":{"causes":["ttl_expired_1h"]}}`), defaultCfg())
+
+	if strings.Contains(got, "🧊") {
+		t.Errorf("expected no prompt cache segment for a provider that never meters cache writes, got %q", got)
+	}
+}
+
+// The metered-write provider keeps its cold marker: a write count above zero
+// means Anthropic-style caching, where going cold has a real recache cost.
+func TestPromptCacheSegmentShownWithMeteredWrites(t *testing.T) {
+	cleanup := setupTestEnv(t)
+	defer cleanup()
+
+	status.HTTPGetFn = failHTTP
+
+	line := buildStatusline(promptCacheInput(t,
+		`{"warm":false,"caching_observed":true,"cache_write_tokens":4200,"last_miss_cause":{"causes":["ttl_expired_1h"]}}`), defaultCfg())
+
+	if got := promptCacheSegmentOf(t, line); got != coldCacheTTL {
+		t.Errorf("prompt cache segment = %q, want %q (line %q)", got, coldCacheTTL, line)
+	}
+
+	// An explicit null (a harness that knows the field but has no count) means
+	// the same as an absent field: the marker stays.
+	line = buildStatusline(promptCacheInput(t,
+		`{"warm":false,"caching_observed":true,"cache_write_tokens":null,"last_miss_cause":{"causes":["ttl_expired_1h"]}}`), defaultCfg())
+
+	if got := promptCacheSegmentOf(t, line); got != coldCacheTTL {
+		t.Errorf("prompt cache segment with null writes = %q, want %q (line %q)", got, coldCacheTTL, line)
 	}
 }
 

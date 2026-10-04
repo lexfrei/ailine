@@ -40,7 +40,7 @@ This project used to be called claudeline. Upgrading through Homebrew or `apt up
 
 ### Prompt cache
 
-The segment stays hidden while the cache is warm, which is the normal state. It appears when the cached prefix has gone cold, because the next request then re-processes the whole conversation instead of reading it back.
+The segment stays hidden while the cache is warm, which is the normal state. It appears when the cached prefix has gone cold, because the next request then re-processes the whole conversation instead of reading it back. On providers that never meter cache writes (automatic server-side caching reports reads only) a cold marker would warn about a recache cost that does not exist, so the segment stays hidden there too.
 
 The word next to `🧊` names the session's most recent miss, which is usually an older event than the cold state itself. A miss rewrites the cache, so the prefix reads warm again on the request that missed, and what leaves it cold afterwards is sitting idle past its lifetime — on that path the miss is at least one lifetime old. The other way in is a response that carries no cache tokens at all, and there the miss can be seconds old. Either way, read the word as "this is what broke the cache", not "this is what is keeping it cold". Several causes collapse to the first plus `+`.
 
