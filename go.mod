@@ -1,6 +1,6 @@
 module github.com/lexfrei/ailine
 
-go 1.27.1
+go 1.27.2
 
 require (
 	github.com/mattn/go-runewidth v0.0.31
