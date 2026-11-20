@@ -202,6 +202,12 @@ Set `refreshInterval` in `~/.claude/settings.json` to also re-run the command on
 }
 ```
 
+### Experimental native plugin
+
+An optional [Claude Code plugin](plugin/README.md) runs the same executable in a native band above the prompt and refreshes while idle. It uses the existing TOML config, but currently lacks prompt-cache state, model-mode indicators, and PR/review data; colors and terminal hyperlinks are unavailable. Keep the command integration above for full functionality.
+
+From a checkout, try it with `claude --plugin-dir ./plugin`. The plugin does not install the binary or change an existing `statusLine` setting.
+
 ## Configuration
 
 Optional config file at `~/.ailinerc.toml`:

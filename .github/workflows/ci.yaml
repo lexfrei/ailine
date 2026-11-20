@@ -52,11 +52,39 @@ jobs:
             exit 1
           fi
 
+  plugin:
+    name: Plugin
+    runs-on: ubuntu-latest
+    env:
+      CLAUDE_CONFIG_DIR: /tmp/ailine-claude-config
+      DISABLE_TELEMETRY: "1"
+      DISABLE_AUTOUPDATER: "1"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Install pinned Claude Code
+        run: |
+          installer_dir=$(mktemp --directory "$RUNNER_TEMP/claude-installer.XXXXXX")
+          installer="$installer_dir/install.sh"
+          curl --fail --silent --show-error --location https://claude.ai/install.sh --output "$installer"
+          printf '%s  %s\n' '2c5506d110560bf618bbe88f678f2c2a0047c86a9c6585fc84976120b1de0b44' "$installer" | sha256sum --check
+          bash "$installer" 2.1.327
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Validate marketplace and plugin
+        run: |
+          claude plugin validate --strict .
+          claude plugin validate --strict --profile directory ./plugin
+
+      - name: Run plugin tests
+        run: claude plugin test ./plugin
+
   build:
     name: Build
     needs:
       - lint
       - test
+      - plugin
     runs-on: ubuntu-latest
     strategy:
       matrix:
