@@ -1,2 +1,2 @@
 [test]
-root = "./tests/core"
+root = "./tests"

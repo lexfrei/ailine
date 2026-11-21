@@ -1,0 +1,4 @@
+{
+	"extends": "./tsconfig.core.json",
+	"include": ["cmd/ailine/**/*.ts", "tests/cli/**/*.ts", "plugin/core/**/*.ts"]
+}

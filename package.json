@@ -4,11 +4,12 @@
 	"type": "module",
 	"packageManager": "bun@1.4.5",
 	"scripts": {
-		"test": "bun run test:core && bun run test:host",
+		"test": "bun run test:core && bun run test:cli && bun run test:host",
 		"test:core": "bun test ./tests/core",
+		"test:cli": "bun test ./tests/cli",
 		"test:host": "claude plugin test ./plugin",
-		"typecheck": "tsc --project tsconfig.core.json",
-		"lint": "biome lint plugin/core tests/core"
+		"typecheck": "tsc --project tsconfig.core.json && tsc --project tsconfig.cli.json",
+		"lint": "biome lint plugin/core cmd/ailine tests"
 	},
 	"dependencies": {
 		"smol-toml": "1.9.1",
