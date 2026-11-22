@@ -8,8 +8,9 @@
 		"test:core": "bun test ./tests/core",
 		"test:cli": "bun test ./tests/cli",
 		"test:host": "claude plugin test ./plugin",
-		"typecheck": "tsc --project tsconfig.core.json && tsc --project tsconfig.cli.json",
-		"lint": "biome lint plugin/core cmd/ailine tests"
+		"typecheck": "bun node_modules/.bin/tsc --project tsconfig.core.json && bun node_modules/.bin/tsc --project tsconfig.cli.json",
+		"lint": "bun node_modules/.bin/biome lint plugin/core cmd/ailine tools tests",
+		"build:vendor": "bun tools/build-vendor.ts"
 	},
 	"dependencies": {
 		"smol-toml": "1.9.1",

@@ -1,4 +1,4 @@
-import { parse } from "smol-toml";
+import { parseToml } from "../vendor/runtime.js";
 import type { Mode, Theme } from "./types";
 import { trimSpace } from "./text";
 
@@ -277,7 +277,7 @@ function flatValues(source: string): ReadonlyMap<string, unknown> {
 		}
 		output.set(prefix, value);
 	}
-	visit(parse(source, { integersAsBigInt: true }), "");
+	visit(parseToml(source), "");
 	return output;
 }
 

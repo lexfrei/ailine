@@ -1,11 +1,9 @@
-import stringWidth from "string-width";
+import { measureWidth } from "../vendor/runtime.js";
 
 const ansiEscape = /\x1b\[[0-9;]*m|\x1b\]8;[^\x07\x1b]*(?:\x07|\x1b\\)/g;
 
 export function visualWidth(text: string): number {
-	return stringWidth(text.replace(ansiEscape, ""), {
-		countAnsiEscapeCodes: true,
-	});
+	return measureWidth(text.replace(ansiEscape, ""));
 }
 
 export function joinPipeWrap(
