@@ -1,18 +1,18 @@
 {
   "name": "ailine",
   "version": "0.1.0",
-  "description": "Experimental native status band powered by the ailine executable",
+  "description": "Native status band with shared TypeScript rendering",
   "author": { "name": "Aleksei Sviridkin" },
   "homepage": "https://github.com/lexfrei/ailine",
   "repository": "https://github.com/lexfrei/ailine",
   "icon": "./.claude-plugin/icon.png",
   "license": "BSD-3-Clause",
   "userConfig": {
-    "binary": {
+    "config": {
       "type": "string",
-      "title": "ailine executable",
-      "description": "Executable name on PATH or absolute path; not a shell command",
-      "default": "ailine"
+      "title": "Configuration file",
+      "description": "TOML path; empty uses ~/.ailinerc.toml with ~/.claudelinerc.toml fallback",
+      "default": ""
     }
   }
 }

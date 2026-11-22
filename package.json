@@ -7,9 +7,9 @@
 		"test": "bun run test:core && bun run test:cli && bun run test:host",
 		"test:core": "bun test ./tests/core",
 		"test:cli": "bun test ./tests/cli",
-		"test:host": "claude plugin test ./plugin",
+		"test:host": "claude plugin test ./plugin && bun tools/test-host-runtime.ts",
 		"typecheck": "bun node_modules/.bin/tsc --project tsconfig.core.json && bun node_modules/.bin/tsc --project tsconfig.cli.json",
-		"lint": "bun node_modules/.bin/biome lint plugin/core cmd/ailine tools tests",
+		"lint": "bun node_modules/.bin/biome lint plugin/core plugin/hooks cmd/ailine tools tests",
 		"build:vendor": "bun tools/build-vendor.ts"
 	},
 	"dependencies": {

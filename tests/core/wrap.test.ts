@@ -1,5 +1,19 @@
 import { expect, test } from "bun:test";
-import { joinPipeWrap, visualWidth } from "../../plugin/core/wrap";
+import {
+	joinPipeWrap,
+	stripFormatting,
+	visualWidth,
+} from "../../plugin/core/wrap";
+
+test("native text strips colors and both hyperlink terminators", () => {
+	expect(stripFormatting("\x1b[32m🧠 50%\x1b[0m")).toBe("🧠 50%");
+	for (const end of ["\x07", "\x1b\\"]) {
+		expect(
+			stripFormatting(`\x1b]8;;https://example.com${end}#42\x1b]8;;${end}`),
+		).toBe("#42");
+	}
+	expect(stripFormatting("plain\ntext")).toBe("plain\ntext");
+});
 
 test("visible width Go table with BEL and ST hyperlinks", () => {
 	for (const [text, width] of [

@@ -1,185 +1,261 @@
-import type { On, SessionUsage } from 'claude-code'
-import type { Engine } from 'claude-code/testing'
-import { expect, mock, test } from 'claude-code/testing'
+import type { On, SessionUsage } from "claude-code";
+import type { Engine } from "claude-code/testing";
+import { expect, mock, test } from "claude-code/testing";
 
 const band = {
-  plugin: 'ailine', component: 'AbovePrompt', surface: 'terminal',
-  props: {
-    hasSurvey: false, isCollapsed: false, isWorking: false,
-    maxRows: 5, bodyColumns: 120, scroll: { offset: 0, bodyRows: 5 }, view: {},
-  },
-} as const
+	plugin: "ailine",
+	component: "AbovePrompt",
+	surface: "terminal",
+	props: {
+		hasSurvey: false,
+		isCollapsed: false,
+		isWorking: false,
+		maxRows: 5,
+		bodyColumns: 120,
+		scroll: { offset: 0, bodyRows: 5 },
+		view: {},
+	},
+} as const;
 
 async function row($: Engine) {
-  const ui = await $.ui.mount(band)
-  const text = (await ui.find({ type: 'Text', text: /./ }))?.text
-  await ui.unmount()
-  return text
+	const ui = await $.ui.mount(band);
+	const text = (await ui.find({ type: "Text", text: /./ }))?.text;
+	await ui.unmount();
+	return text;
 }
+
+const config =
+	'[segments]\nstatus = false\nquota = false\ncredits = false\ncompactions = false\nrepo = false\nworktree = false\ncost = "false"\n';
+const start = {
+	cwd: "/workspace",
+	surface: "terminal",
+	isInteractive: true,
+} as const;
+const end = {
+	reason: "prompt_input_exit",
+	sessionId: "test",
+	resume: { id: "test" },
+} as const;
 
 function session(on: On) {
-  const clock = mock.clock(on)
-  const inputs: { argv: readonly string[]; stdin?: string }[] = []
-  const rows: (string | undefined)[] = []
-  on('session.start', (_, e) => ({ cwd: e.cwd }))
-  on('session.end', (_, e) => ({ sessionId: e.sessionId }))
-  on('session.cwd', () => ({ value: '/workspace' }))
-  on('session.model', () => ({ value: 'claude-opus-5-5' }))
-  on('session.info', () => ({ value: { transcriptPath: '/workspace/session.jsonl' } }))
-  const state = {
-    usage: {
-      startedAt: 0,
-      context: { window: 1000000, percent: 37 },
-      rateLimits: [
-        { kind: 'five_hour', percentUsed: 23, resetsAt: '2026-11-21T00:00:00Z' },
-        { kind: 'seven_day', percentUsed: 42, resetsAt: '2026-11-25T00:00:00Z' },
-        { kind: 'spend_limit', percentUsed: 120 },
-      ],
-      cost: { usd: 1.25 },
-    } as SessionUsage,
-    output: {
-      exitCode: 0, stdout: '\x1b[32m🧠 37%\x1b[0m\n', stderr: '',
-      isStdoutTruncated: false, isStderrTruncated: false,
-    },
-    throws: false,
-    delay: 0,
-  }
-  on('session.usage', () => ({ value: state.usage }))
-  on('process.run', async (_, e) => {
-    inputs.push({ argv: e.argv, stdin: e.init?.stdin })
-    if (state.delay) await clock.sleep(state.delay)
-    if (state.throws) throw new Error('private diagnostic')
-    return { value: state.output }
-  })
-  on('ui.status', (_, e) => {
-    rows.push(e.text)
-    return { value: undefined }
-  })
-  return { clock, inputs, rows, state }
+	const clock = mock.clock(on);
+	const calls: string[] = [];
+	const state = {
+		config,
+		model: "claude-opus-5-5",
+		usage: {
+			startedAt: 0,
+			context: { window: 1000000, percent: 37 },
+			rateLimits: [],
+			cost: { usd: 1.25 },
+		} as SessionUsage,
+		throws: false,
+		delay: 0,
+	};
+	on("session.start", (_, e) => ({ cwd: e.cwd }));
+	on("session.end", (_, e) => ({ sessionId: e.sessionId }));
+	on("session.cwd", () => ({ value: "/workspace" }));
+	on("session.model", () => ({ value: state.model }));
+	on("session.info", () => ({
+		value: { transcriptPath: "/workspace/session.jsonl", platform: "linux" },
+	}));
+	on("session.usage", async () => {
+		calls.push("usage");
+		const value = state.usage;
+		if (state.delay) await clock.sleep(state.delay);
+		if (state.throws) throw new Error("private diagnostic");
+		return { value };
+	});
+	on("env.get", () => ({ value: "/home/test-user" }));
+	on("fs.stat", (_, e) => {
+		calls.push(e.path);
+		return {
+			value: {
+				kind: "file",
+				size: state.config.length,
+				mtimeMs: 0,
+				isLink: false,
+			},
+		};
+	});
+	on("fs.read", (_, e) => {
+		calls.push(e.path);
+		return {
+			value: {
+				as: "bytes",
+				base64: btoa(
+					Array.from(new TextEncoder().encode(state.config), (byte) =>
+						String.fromCharCode(byte),
+					).join(""),
+				),
+			},
+		};
+	});
+	on("process.run", () => {
+		throw new Error("native renderer must not launch a subprocess");
+	});
+	on("http.fetch", () => {
+		throw new Error("disabled segments must not request network data");
+	});
+	return { clock, calls, state };
 }
 
-const start = { cwd: '/workspace', surface: 'terminal', isInteractive: true } as const
-const end = { reason: 'prompt_input_exit', sessionId: 'test', resume: { id: 'test' } } as const
+test("renders the shared core directly without an executable", async ($, on) => {
+	const { calls } = session(on);
+	await $.session.start(start);
+	expect(await row($)).toBe("🤖 claude-opus-5-5 | 🧠 37%");
+	expect(calls).toContain("/home/test-user/.ailinerc.toml");
+});
 
-test('maps available session data to the binary without inventing missing fields', async ($, on) => {
-  const { inputs } = session(on)
-  await $.session.start(start)
-  expect(inputs.length).toBe(1)
-  expect(inputs[0]!.argv).toEqual(['ailine', '--hyperlinks=false'])
-  expect(JSON.parse(inputs[0]!.stdin!)).toEqual({
-    model: { id: 'claude-opus-5-5', display_name: 'claude-opus-5-5' },
-    cwd: '/workspace',
-    transcript_path: '/workspace/session.jsonl',
-    context_window: { used_percentage: 37 },
-    cost: { total_cost_usd: 1.25 },
-    rate_limits: {
-      five_hour: { used_percentage: 23, resets_at: 1795219200 },
-      seven_day: { used_percentage: 42, resets_at: 1795564800 },
-    },
-  })
-  expect(await row($)).toBe('🧠 37%')
-})
+test("refreshes while idle and keeps refreshing after clear and resume", async ($, on) => {
+	const { clock, calls, state } = session(on);
+	await $.session.start(start);
+	await clock.advance(5000);
+	expect(calls.filter((call) => call === "usage").length).toBe(2);
+	state.usage.context.percent = 50;
+	await $.session.end({ ...end, reason: "clear" });
+	await clock.advance(5000);
+	expect(await row($)).toBe("🤖 claude-opus-5-5 | 🧠 50%");
+	await $.session.end({ ...end, reason: "resume" });
+	await clock.advance(5000);
+	expect(calls.filter((call) => call === "usage").length).toBe(4);
+});
 
-test('refreshes while idle and keeps refreshing after clear and resume', async ($, on) => {
-  const { clock, inputs, state } = session(on)
-  await $.session.start(start)
-  await clock.advance(5000)
-  expect(inputs.length).toBe(2)
-  state.usage.context.percent = 50
-  await $.session.end({ ...end, reason: 'clear' })
-  await clock.advance(5000)
-  expect(inputs.length).toBe(3)
-  expect(JSON.parse(inputs[2]!.stdin!).context_window.used_percentage).toBe(50)
-  await $.session.end({ ...end, reason: 'resume' })
-  await clock.advance(5000)
-  expect(inputs.length).toBe(4)
-})
+test("noninteractive sessions do not read config or session usage", async ($, on) => {
+	const { clock, calls } = session(on);
+	await $.session.start({ ...start, surface: null, isInteractive: false });
+	await clock.advance(5000);
+	expect(calls).toEqual([]);
+	expect(await row($)).toBeUndefined();
+});
 
-test('does not start a child in noninteractive sessions', async ($, on) => {
-  const { clock, inputs } = session(on)
-  await $.session.start({ ...start, surface: null, isInteractive: false })
-  await clock.advance(5000)
-  expect(inputs).toEqual([])
-  expect(await row($)).toBeUndefined()
-})
+test(
+	"accepts an explicit config path without shell parsing",
+	{ options: { config: "/config path/ailine.toml" } },
+	async ($, on) => {
+		const { calls } = session(on);
+		await $.session.start(start);
+		await row($);
+		expect(calls).toContain("/config path/ailine.toml");
+		expect(calls).not.toContain("/home/test-user/.ailinerc.toml");
+	},
+);
 
-test('accepts an executable path without shell parsing', { options: { binary: '/opt/ailine tools/ailine' } }, async ($, on) => {
-  const { inputs } = session(on)
-  await $.session.start(start)
-  expect(inputs[0]!.argv).toEqual(['/opt/ailine tools/ailine', '--hyperlinks=false'])
-})
+test("omits absent cost even when config explicitly enables the segment", async ($, on) => {
+	const { state } = session(on);
+	state.config = config.replace('cost = "false"', 'cost = "true"');
+	state.usage = {
+		startedAt: 0,
+		context: { window: 1000000 },
+		rateLimits: [
+			{ kind: "five_hour", percentUsed: 20 },
+			{ kind: "seven_day", percentUsed: 30, resetsAt: "invalid" },
+		],
+	};
+	await $.session.start(start);
+	expect(await row($)).toBe("🤖 claude-opus-5-5");
+});
 
-test('reports a failed executable instead of displaying partial output', async ($, on) => {
-  const { state } = session(on)
-  state.output.exitCode = 1
-  state.output.stdout = 'partial'
-  state.output.stderr = 'private diagnostic'
-  await $.session.start(start)
-  expect(await row($)).toBe('ailine: unavailable (check executable and config)')
-})
+test("available cost and config theme are rendered without ANSI escapes", async ($, on) => {
+	const { state } = session(on);
+	state.config = `theme = "text"\n${config.replace('cost = "false"', 'cost = "true"')}`;
+	await $.session.start(start);
+	expect(await row($)).toBe("claude-opus-5-5 | $1.25 | 37%");
+});
 
-test('omits absent context and cost and skips windows without valid reset times', async ($, on) => {
-  const { inputs, state } = session(on)
-  state.usage = {
-    startedAt: 0, context: { window: 1000000 },
-    rateLimits: [
-      { kind: 'five_hour', percentUsed: 20 },
-      { kind: 'seven_day', percentUsed: 30, resetsAt: 'invalid' },
-    ],
-  }
-  await $.session.start(start)
-  const payload = JSON.parse(inputs[0]!.stdin!)
-  expect(payload.cost).toBeUndefined()
-  expect(payload.context_window).toBeUndefined()
-  expect(payload.rate_limits).toEqual({})
-  expect(inputs[0]!.argv).toContain('--cost=false')
-})
+test("recovers from a failed session query without exposing diagnostics", async ($, on) => {
+	const { clock, state } = session(on);
+	state.throws = true;
+	await $.session.start(start);
+	expect(await row($)).toBe(
+		"ailine: unavailable (check config and permissions)",
+	);
+	state.throws = false;
+	await clock.advance(5000);
+	expect(await row($)).toBe("🤖 claude-opus-5-5 | 🧠 37%");
+});
 
-test('recovers from a rejected process call on the next refresh', async ($, on) => {
-  const { clock, state } = session(on)
-  state.throws = true
-  await $.session.start(start)
-  expect(await row($)).toBe('ailine: unavailable (check executable and config)')
-  state.throws = false
-  await clock.advance(5000)
-  expect(await row($)).toBe('🧠 37%')
-})
+test("stops its timer and clears its row at exit", async ($, on) => {
+	const { clock, calls } = session(on);
+	await $.session.start(start);
+	await $.session.end(end);
+	await clock.advance(10000);
+	expect(calls.filter((call) => call === "usage").length).toBe(1);
+	expect(await row($)).toBeUndefined();
+});
 
-test('rejects truncated output', async ($, on) => {
-  const { state } = session(on)
-  state.output.isStdoutTruncated = true
-  await $.session.start(start)
-  expect(await row($)).toBe('ailine: unavailable (check executable and config)')
-})
+test("does not overlap slow refreshes or restore a row after exit", async ($, on) => {
+	const { clock, calls, state } = session(on);
+	await $.session.start(start);
+	state.delay = 8000;
+	await clock.advance(10000);
+	expect(calls.filter((call) => call === "usage").length).toBe(2);
+	await $.session.end(end);
+	await clock.advance(8000);
+	expect(calls.filter((call) => call === "usage").length).toBe(2);
+	expect(await row($)).toBeUndefined();
+});
 
-test('stops its timer and clears its row at exit', async ($, on) => {
-  const { clock, inputs } = session(on)
-  await $.session.start(start)
-  await $.session.end(end)
-  await clock.advance(10000)
-  expect(inputs.length).toBe(1)
-  expect(await row($)).toBeUndefined()
-})
+test("a refresh from a cleared session is replaced by one for the new session", async ($, on) => {
+	const { clock, state } = session(on);
+	await $.session.start(start);
+	state.delay = 8000;
+	await clock.advance(5000);
+	await $.session.end({ ...end, reason: "clear" });
+	state.usage = {
+		startedAt: 10000,
+		context: { window: 1000000, percent: 70 },
+		rateLimits: [],
+	};
+	state.delay = 0;
+	await $.session.start(start);
+	expect(await row($)).toBeUndefined();
+	await clock.advance(8000);
+	expect(await row($)).toBe("🤖 claude-opus-5-5 | 🧠 70%");
+});
 
-test('does not overlap slow children or restore a row after exit', async ($, on) => {
-  const { clock, inputs, state } = session(on)
-  await $.session.start(start)
-  state.delay = 8000
-  await clock.advance(10000)
-  expect(inputs.length).toBe(2)
-  await $.session.end(end)
-  await clock.advance(8000)
-  expect(inputs.length).toBe(2)
-  expect(await row($)).toBeUndefined()
-})
+test("a superseded session start cannot install a second refresh timer", async ($, on) => {
+	const { clock, calls, state } = session(on);
+	state.delay = 8000;
+	const starting = $.session.start(start);
+	await clock.advance(1000);
+	await $.session.end({ ...end, reason: "clear" });
+	state.delay = 0;
+	await $.session.start(start);
+	await clock.advance(8000);
+	await starting;
+	expect(calls.filter((call) => call === "usage").length).toBe(2);
+	await clock.advance(5000);
+	expect(calls.filter((call) => call === "usage").length).toBe(3);
+});
 
-test('draws a native band rather than a warning notice on supported surfaces', async ($, on) => {
-  const { rows } = session(on)
-  await $.session.start(start)
-  expect(rows).toEqual([])
-  for (const surface of ['terminal', 'desktop', 'mobile'] as const) {
-    const ui = await $.ui.mount({ ...band, surface })
-    expect((await ui.find({ type: 'Text', text: '🧠 37%' }))?.text).toBe('🧠 37%')
-    await ui.unmount()
-  }
-})
+test("session start does not wait for a slow first refresh", async ($, on) => {
+	const { clock, calls, state } = session(on);
+	state.delay = 8000;
+	await $.session.start(start);
+	expect(await row($)).toBeUndefined();
+	await clock.advance(8000);
+	expect(await row($)).toBe("🤖 claude-opus-5-5 | 🧠 37%");
+	expect(calls.filter((call) => call === "usage").length).toBe(1);
+});
+
+test("survey suppression and native Text work on terminal, desktop and mobile", async ($, on) => {
+	session(on);
+	await $.session.start(start);
+	for (const surface of ["terminal", "desktop", "mobile"] as const) {
+		const ui = await $.ui.mount({ ...band, surface });
+		expect(
+			(await ui.find({ type: "Text", text: "🤖 claude-opus-5-5 | 🧠 37%" }))
+				?.text,
+		).toBe("🤖 claude-opus-5-5 | 🧠 37%");
+		await ui.unmount();
+	}
+	const survey = await $.ui.mount({
+		...band,
+		props: { ...band.props, hasSurvey: true },
+	});
+	expect(
+		await survey.find({ type: "Text", text: /claude-opus/ }),
+	).toBeUndefined();
+	await survey.unmount();
+});

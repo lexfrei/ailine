@@ -2,8 +2,12 @@ import { measureWidth } from "../vendor/runtime.js";
 
 const ansiEscape = /\x1b\[[0-9;]*m|\x1b\]8;[^\x07\x1b]*(?:\x07|\x1b\\)/g;
 
+export function stripFormatting(text: string): string {
+	return text.replace(ansiEscape, "");
+}
+
 export function visualWidth(text: string): number {
-	return measureWidth(text.replace(ansiEscape, ""));
+	return measureWidth(stripFormatting(text));
 }
 
 export function joinPipeWrap(
