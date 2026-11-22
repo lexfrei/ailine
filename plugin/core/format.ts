@@ -46,7 +46,9 @@ export function rateIndicator(
 export function part(theme: Theme, text: string, ...icons: string[]): string {
 	if (theme === "text") {
 		for (const icon of icons) {
-			const color = Object.hasOwn(statusColors, icon) ? statusColors[icon] : undefined;
+			const color = Object.hasOwn(statusColors, icon)
+				? statusColors[icon]
+				: undefined;
 			if (color !== undefined) return color + text + reset;
 		}
 		return text;
@@ -176,4 +178,34 @@ export function parseIsoUtc(raw: string): number | undefined {
 	if (zoneHours > 24 || zoneMinutes > 60) return undefined;
 	const offset = (zoneHours * 60 + zoneMinutes) * 60000;
 	return date.getTime() - (zone[0] === "+" ? offset : -offset);
+}
+
+export function formatFixed(value: number, digits: 0 | 2): string {
+	if (!Number.isFinite(value)) throw new Error("Invalid finite amount");
+	const sign = value < 0 || Object.is(value, -0) ? "-" : "";
+	if (value === 0) return sign + (digits === 2 ? "0.00" : "0");
+	// Go fmt uses ties-to-even on the binary float; toFixed() has a different tie rule.
+	const buffer = new ArrayBuffer(8);
+	const view = new DataView(buffer);
+	view.setFloat64(0, Math.abs(value), false);
+	const bits = view.getBigUint64(0, false);
+	const exponentBits = Number((bits >> 52n) & 0x7ffn);
+	let significand = bits & ((1n << 52n) - 1n);
+	if (exponentBits !== 0) significand |= 1n << 52n;
+	const exponent = (exponentBits === 0 ? -1022 : exponentBits - 1023) - 52;
+	let rounded = significand * (digits === 2 ? 100n : 1n);
+	if (exponent >= 0) rounded <<= BigInt(exponent);
+	else {
+		const shift = BigInt(-exponent);
+		const whole = rounded >> shift;
+		const remainder = rounded - (whole << shift);
+		const half = 1n << (shift - 1n);
+		rounded = whole;
+		if (remainder > half || (remainder === half && (whole & 1n) !== 0n))
+			rounded++;
+	}
+	const text = rounded.toString();
+	if (digits === 0) return sign + text;
+	const padded = text.padStart(3, "0");
+	return `${sign}${padded.slice(0, -2)}.${padded.slice(-2)}`;
 }
