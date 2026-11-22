@@ -9,7 +9,7 @@ Strict sequential flow, each step depends on the previous one succeeding.
 - Create feature branch from `master`
 - Commit changes (small, focused commits with `--signoff`)
 - Push branch, create draft PR via `gh pr create --draft`
-- Wait for CI (Lint + Test + Build)
+- Wait for CI (Plugin + TypeScript)
 
 ### 2. Merge
 
@@ -19,6 +19,7 @@ Strict sequential flow, each step depends on the previous one succeeding.
 ### 3. Tag
 
 - Determine version bump (semver): patch/minor/major
+- If `plugin/` changed since the previous tag, the version in `plugin/.claude-plugin/plugin.json` must have been bumped in the PR; the ccc marketplace installs the plugin from `master`
 - Switch to `master`, pull latest
 - Create **signed** tag: `git tag --sign vX.Y.Z --message "Release vX.Y.Z: description"`
 - Verify signature: `git tag --verify vX.Y.Z`
@@ -28,8 +29,8 @@ Strict sequential flow, each step depends on the previous one succeeding.
 
 Tag push triggers CI release job:
 
-- Lint → Test → Build → GoReleaser
-- GoReleaser builds darwin + linux binaries for amd64 and arm64
+- Plugin and TypeScript checks → GoReleaser
+- GoReleaser builds standalone Bun executables: darwin and glibc Linux for amd64 and arm64, plus separate musl Linux archives
 - Creates GitHub release with binaries, `.deb` packages and checksums
 - Updates Homebrew tap (`lexfrei/homebrew-tap`)
 - The release job sends `lexfrei/apt` a dispatch, which rebuilds the apt repository with the new `.deb` files
