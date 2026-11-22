@@ -14,44 +14,6 @@ permissions:
   contents: read
 
 jobs:
-  lint:
-    name: Lint
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-
-      - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7
-        with:
-          go-version-file: go.mod
-          cache: false
-
-      - uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9
-        with:
-          version: latest
-
-  test:
-    name: Test
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-
-      - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7
-        with:
-          go-version-file: go.mod
-          cache: false
-
-      - name: Run tests with coverage
-        run: go test -race -coverprofile=coverage.out -covermode=atomic ./...
-
-      - name: Check coverage threshold
-        run: |
-          COVERAGE=$(go tool cover -func=coverage.out | grep total | awk '{print $3}' | tr -d '%')
-          echo "Total coverage: ${COVERAGE}%"
-          if [ "$(echo "${COVERAGE} < 85" | bc)" -eq 1 ]; then
-            echo "::error::Coverage ${COVERAGE}% is below 85% threshold"
-            exit 1
-          fi
-
   plugin:
     name: Plugin
     runs-on: ubuntu-latest
@@ -121,44 +83,12 @@ jobs:
       - name: Rehearse all release artifacts without publishing
         run: goreleaser release --snapshot --skip=publish
 
-  build:
-    name: Build
-    needs:
-      - lint
-      - test
-      - plugin
-      - typescript
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        goos:
-          - darwin
-          - linux
-        goarch:
-          - amd64
-          - arm64
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-
-      - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7
-        with:
-          go-version-file: go.mod
-          cache: false
-
-      - name: Build
-        env:
-          GOOS: ${{ matrix.goos }}
-          GOARCH: ${{ matrix.goarch }}
-          CGO_ENABLED: "0"
-        run: go build -trimpath -ldflags="-s -w" -o ailine ./cmd/ailine
-
   release:
     name: Release
     if: startsWith(github.ref, 'refs/tags/v')
     needs:
-      - lint
-      - test
-      - build
+      - plugin
+      - typescript
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -166,10 +96,6 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
-
-      - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7
-        with:
-          go-version-file: go.mod
 
       - name: Prepare checksum-pinned Bun runtimes
         run: |

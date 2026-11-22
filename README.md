@@ -1,7 +1,6 @@
 # ailine
 
 [![CI](https://github.com/lexfrei/ailine/actions/workflows/ci.yaml/badge.svg)](https://github.com/lexfrei/ailine/actions/workflows/ci.yaml)
-[![Go](https://img.shields.io/github/go-mod/go-version/lexfrei/ailine)](https://go.dev/)
 [![License](https://img.shields.io/github/license/lexfrei/ailine)](LICENSE)
 
 Real-time statusline for [Claude Code](https://docs.anthropic.com/en/docs/claude-code) showing live quota usage directly from stdin data.

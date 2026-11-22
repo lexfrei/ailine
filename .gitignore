@@ -1,5 +1,6 @@
 # Binaries
 /ailine
+/claudeline
 dist/
 *.bun-build
 node_modules/
@@ -13,9 +14,6 @@ node_modules/
 # OS
 .DS_Store
 Thumbs.db
-
-# Test artifacts
-coverage.out
 
 # Cache files (runtime)
 /tmp/
