@@ -6,7 +6,13 @@ Tested against Claude Code 2.1.327. The early-access mods API can change between
 
 ## Install
 
-Distribution is planned through the `lexfrei/ccc` marketplace using this repository's `plugin` subdirectory. The marketplace entry has not been added yet. For now, use a local checkout:
+The plugin is distributed through the [lexfrei/ccc](https://github.com/lexfrei/ccc) marketplace, which points at this repository's `plugin` directory. Updates follow this repository's default branch:
+
+```text
+/plugin install ailine --marketplace lexfrei/ccc
+```
+
+To try a local checkout instead:
 
 ```bash
 claude --plugin-dir ./plugin
