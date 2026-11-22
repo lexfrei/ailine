@@ -1,5 +1,6 @@
 {
 	"extends": "./tsconfig.core.json",
+	"compilerOptions": { "resolveJsonModule": true },
 	"include": [
 		"cmd/ailine/**/*.ts",
 		"tests/cli/**/*.ts",

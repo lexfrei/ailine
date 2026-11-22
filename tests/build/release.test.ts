@@ -9,6 +9,7 @@ import {
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import fixtures from "../fixtures/renderer.json";
 
 const root = resolve(import.meta.dir, "../..");
 
@@ -136,6 +137,19 @@ test("GoReleaser produces an isolated standalone CLI with embedded version and d
 			stdout: "🤖 Opus | \x1b[32m🧠 37%\x1b[0m",
 			stderr: "",
 		});
+		for (const fixture of fixtures) {
+			const result = await execute(
+				[binary, ...fixture.args],
+				cwd,
+				{ ...env, COLUMNS: fixture.columns },
+				fixture.input,
+			);
+			expect(result, fixture.name).toEqual({
+				exitCode: fixture.expected.exit,
+				stdout: fixture.expected.stdout,
+				stderr: fixture.expected.stderr,
+			});
+		}
 	} finally {
 		await rm(directory, { recursive: true, force: true });
 	}

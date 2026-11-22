@@ -88,6 +88,8 @@ A small safety margin (2 cells) is subtracted from `$COLUMNS` as a buffer: the t
 
 When `$COLUMNS` is unset (older Claude Code, non-terminal hosts), output stays on a single line — current behavior is preserved.
 
+The TypeScript renderer measures emoji presentation sequences as graphemes. For example, `⬆️` and `⬇️` occupy two cells rather than the one cell counted by the former Go width library. Rows near a wrapping boundary can therefore wrap earlier.
+
 ### Repo segment
 
 Renders when Claude Code reports `workspace.repo` (a git remote pointing at a known host):
