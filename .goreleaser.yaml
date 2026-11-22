@@ -3,29 +3,59 @@ version: 2
 project_name: ailine
 
 builds:
-  - main: ./cmd/ailine
+  - id: ailine-standalone
+    builder: bun
+    main: ./cmd/ailine/main.ts
     binary: ailine
-    env:
-      - CGO_ENABLED=0
-    goos:
-      - darwin
-      - linux
-    goarch:
-      - amd64
-      - arm64
-    flags:
-      - -trimpath
-    ldflags:
-      - -s -w
-      - -X main.version={{.Version}}
-      - -X main.commit={{.ShortCommit}}
+    targets:
+      - darwin-arm64
+      - darwin-x64-baseline
+      - linux-arm64
+      - linux-x64-baseline
+    flags: &bun-flags
+      - --compile
+      - --bytecode
+      - --no-compile-autoload-dotenv
+      - --no-compile-autoload-bunfig
+      - --no-compile-autoload-tsconfig
+      - --no-compile-autoload-package-json
+      - --compile-executable-path={{ .Env.BUN_RUNTIME_DIR }}/{{ .Target }}
+      - '--define=AILINE_VERSION={{ printf "%q" .Version }}'
+      - '--define=AILINE_COMMIT={{ printf "%q" .ShortCommit }}'
+  - id: ailine-musl
+    builder: bun
+    main: ./cmd/ailine/main.ts
+    binary: ailine
+    targets:
+      - linux-arm64-musl
+      - linux-x64-musl-baseline
+    flags: *bun-flags
 
 archives:
-  - formats: [tar.gz]
+  - id: standard
+    ids: [ailine-standalone]
+    formats: [tar.gz]
     name_template: "{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}"
+    files: &release-files
+      - LICENSE
+      - README.md
+      - src: plugin/vendor/THIRD_PARTY_NOTICES.txt
+        dst: THIRD_PARTY_NOTICES.txt
+      - src: docs/external/bun/LICENSE.md
+        dst: BUN_LICENSE.md
+      - src: docs/build.md
+        dst: docs/build.md
+      - src: docs/dependencies.md
+        dst: docs/dependencies.md
+  - id: musl
+    ids: [ailine-musl]
+    formats: [tar.gz]
+    name_template: "{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}_musl"
+    files: *release-files
 
 nfpms:
-  - formats: [deb]
+  - ids: [ailine-standalone]
+    formats: [deb]
     # GoReleaser's default puts the OS in the name, which no Debian tool
     # expects: the archive is what carries a platform, a .deb carries an
     # architecture.
@@ -36,9 +66,19 @@ nfpms:
     description: Real-time statusline for Claude Code
     license: BSD-3-Clause
     section: utils
+    dependencies:
+      - libc6 (>= 2.17)
     contents:
       - src: LICENSE
         dst: /usr/share/doc/ailine/copyright
+      - src: plugin/vendor/THIRD_PARTY_NOTICES.txt
+        dst: /usr/share/doc/ailine/THIRD_PARTY_NOTICES.txt
+      - src: docs/external/bun/LICENSE.md
+        dst: /usr/share/doc/ailine/BUN_LICENSE.md
+      - src: docs/build.md
+        dst: /usr/share/doc/ailine/BUILD.md
+      - src: docs/dependencies.md
+        dst: /usr/share/doc/ailine/dependencies.md
       # Owned here rather than by the transitional package: apt marks that one
       # auto-installed, so autoremove would take the old command name with it.
       - src: ailine
@@ -69,6 +109,7 @@ nfpms:
 
 brews:
   - name: ailine
+    ids: [standard]
     repository:
       owner: lexfrei
       name: homebrew-tap
@@ -80,6 +121,7 @@ brews:
     install: |
       bin.install "ailine"
       bin.install_symlink "ailine" => "claudeline"
+      doc.install "BUN_LICENSE.md", "THIRD_PARTY_NOTICES.txt"
 
 checksum:
   name_template: "checksums.txt"

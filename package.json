@@ -4,9 +4,10 @@
 	"type": "module",
 	"packageManager": "bun@1.4.5",
 	"scripts": {
-		"test": "bun run test:core && bun run test:cli && bun run test:host",
+		"test": "bun run test:core && bun run test:cli && bun run test:host && bun run test:build",
 		"test:core": "bun test ./tests/core",
 		"test:cli": "bun test ./tests/cli",
+		"test:build": "python3 -I tests/build/prepare_bun_test.py && bun test ./tests/build",
 		"test:host": "claude plugin test ./plugin && bun tools/test-host-runtime.ts",
 		"typecheck": "bun node_modules/.bin/tsc --project tsconfig.core.json && bun node_modules/.bin/tsc --project tsconfig.cli.json",
 		"lint": "bun node_modules/.bin/biome lint plugin/core plugin/hooks cmd/ailine tools tests",

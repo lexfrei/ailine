@@ -76,8 +76,50 @@ jobs:
           claude plugin validate --strict .
           claude plugin validate --strict --profile directory ./plugin
 
+      - name: Prepare checksum-pinned Bun compiler
+        run: |
+          runtimes="$RUNNER_TEMP/bun-runtimes"
+          python3 -I tools/prepare_bun.py "$runtimes" --native-only
+          echo "$runtimes" >> "$GITHUB_PATH"
+
       - name: Run plugin tests
-        run: claude plugin test ./plugin
+        run: bun run test:host
+
+  typescript:
+    name: TypeScript
+    runs-on: ubuntu-latest
+    env:
+      CLAUDE_CONFIG_DIR: /tmp/ailine-ts-claude-config
+      DISABLE_TELEMETRY: "1"
+      DISABLE_AUTOUPDATER: "1"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Prepare checksum-pinned Bun runtimes
+        run: |
+          runtimes="$RUNNER_TEMP/bun-runtimes"
+          python3 -I tools/prepare_bun.py "$runtimes"
+          echo "$runtimes" >> "$GITHUB_PATH"
+          echo "BUN_RUNTIME_DIR=$runtimes" >> "$GITHUB_ENV"
+
+      - name: Install reviewed dependencies
+        run: bun install --frozen-lockfile --ignore-scripts
+
+      - uses: goreleaser/goreleaser-action@a4f02ab5355a589de60d917a659ce617ed19b3de # v7
+        with:
+          version: v2.20.2
+          install-only: true
+
+      - name: Check types, lint, portable tests and standalone executable
+        run: |
+          bun run typecheck
+          bun run lint
+          bun run test:core
+          bun run test:cli
+          bun run test:build
+
+      - name: Rehearse all release artifacts without publishing
+        run: goreleaser release --snapshot --skip=publish
 
   build:
     name: Build
@@ -85,6 +127,7 @@ jobs:
       - lint
       - test
       - plugin
+      - typescript
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -128,9 +171,16 @@ jobs:
         with:
           go-version-file: go.mod
 
+      - name: Prepare checksum-pinned Bun runtimes
+        run: |
+          runtimes="$RUNNER_TEMP/bun-runtimes"
+          python3 -I tools/prepare_bun.py "$runtimes"
+          echo "$runtimes" >> "$GITHUB_PATH"
+          echo "BUN_RUNTIME_DIR=$runtimes" >> "$GITHUB_ENV"
+
       - uses: goreleaser/goreleaser-action@a4f02ab5355a589de60d917a659ce617ed19b3de # v7
         with:
-          version: latest
+          version: v2.20.2
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

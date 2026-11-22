@@ -3,6 +3,7 @@
 	"include": [
 		"cmd/ailine/**/*.ts",
 		"tests/cli/**/*.ts",
+		"tests/build/**/*.ts",
 		"plugin/core/**/*.ts",
 		"tools/**/*.ts"
 	]

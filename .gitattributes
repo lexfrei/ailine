@@ -1,3 +1,4 @@
+docs/external/** linguist-documentation
 plugin/vendor/** linguist-vendored
 plugin/vendor/runtime.js linguist-generated
 plugin/vendor/runtime.d.ts linguist-generated

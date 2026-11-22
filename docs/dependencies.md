@@ -1,6 +1,6 @@
 # Dependency review
 
-Reviewed on 2026-11-21 for the TypeScript migration. Publisher history and artifact origin are the trust criteria; stars and download counts are not. This review covers the exact versions below, not future semver-compatible releases. It does not establish freedom from vulnerabilities.
+Reviewed on 2026-11-21 for the TypeScript migration; Linux x64 compiler artifacts were additionally verified on 2026-11-22. Publisher history and artifact origin are the trust criteria; stars and download counts are not. This review covers the exact versions below, not future semver-compatible releases. It does not establish freedom from vulnerabilities.
 
 ## Runtime packages
 
@@ -34,13 +34,15 @@ That incident is part of the assessment, not evidence that the selected versions
 ## Build tools and types
 
 - Bun 1.4.5 comes from the official `oven-sh/bun` release published by `robobun`. The installed runtime matched the official artifact. The six runtime ZIPs used for platform probes also matched checksums whose signature passed verification with asserted publisher key `F3DCC08A8572C0749B3E18888EAB4D40A7B22B59`. The key is bootstrapped from the pinned [upstream Containerfile](https://github.com/oven-sh/bun/blob/bun-v1.4.5/dockerhub/alpine/Dockerfile), not from a locally established Web-of-Trust identity.
-- TypeScript 7.0.2 is published by `microsoft1es` from Microsoft's official [release pipeline](https://github.com/microsoft/TypeScript/blob/main/tools/pipelines/typescript-publish.yml). The main package and selected Darwin arm64 compiler tarball matched the digests of the official GitHub release assets. No npm source-bound attestation is advertised for those packages.
-- Biome 2.6.8 is maintained by `biomejs` under public governance and published through GitHub Actions. The main package and selected Darwin arm64 CLI package passed Sigstore verification restricted to the repository and its release workflow identity.
+- TypeScript 7.0.2 is published by `microsoft1es` from Microsoft's official [release pipeline](https://github.com/microsoft/TypeScript/blob/main/tools/pipelines/typescript-publish.yml). The main package and selected Darwin arm64 and Linux x64 compiler tarballs matched the digests of the official GitHub release assets. No npm source-bound attestation is advertised for those packages.
+- Biome 2.6.8 is maintained by `biomejs` under public governance and published through GitHub Actions. The main package and selected Darwin arm64 and Linux x64 CLI packages passed Sigstore verification restricted to the repository and its release workflow identity.
 - `@types/bun@1.4.5` and `@types/node@26.6.6` are published by DefinitelyTyped's `types` account through [Microsoft's publishing tooling](https://github.com/microsoft/DefinitelyTyped-tools/tree/master/packages/publisher). `bun-types@1.4.5` comes from `oven-sh/bun`; `undici-types@8.9.0` comes from `nodejs/undici` and passed release-workflow provenance verification. These are development-only dependencies.
 
 Publisher metadata and lifecycle hooks were checked for all 30 optional TypeScript/Biome platform packages. That metadata check is not cryptographic verification of every uninstalled binary. Each selected platform artifact must be verified before its first execution in the corresponding build environment. Upstream wildcard type dependencies are constrained by exact overrides. Package installation uses `--ignore-scripts`.
 
 The reviewed lockfile returned no advisory findings on the review date. An empty advisory report does not replace publisher review, source inspection or artifact verification.
+
+The build-time runtime preparer uses only CPython's standard library, with no PyPI dependencies. CI obtains Python from its runner image. GoReleaser is the existing packager, now pinned to 2.20.2; the pinned action installs it without introducing a second packaging framework. These host tools remain part of the build environment's trust boundary.
 
 ## Platform libraries
 
