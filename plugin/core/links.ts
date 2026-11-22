@@ -1,4 +1,4 @@
-import { trimSpace } from "./text";
+import { toWellFormed, trimSpace } from "./text";
 
 const terminalsWithHyperlinks = new Set([
 	"iTerm.app",
@@ -39,7 +39,7 @@ export function link(text: string, url: string, enabled: boolean): string {
 	if (!enabled || (!url.startsWith("https://") && !url.startsWith("http://")))
 		return text;
 	// Lone UTF-16 surrogates cannot represent the valid UTF-8 Go requires.
-	if (!url.isWellFormed()) return text;
+	if (toWellFormed(url) !== url) return text;
 	for (const character of url) {
 		const code = character.codePointAt(0) ?? 0;
 		if (code < 0x20 || (code >= 0x7f && code <= 0x9f)) return text;

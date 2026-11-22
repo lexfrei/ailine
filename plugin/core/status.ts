@@ -1,3 +1,4 @@
+import { toWellFormed } from "./text";
 import { part } from "./format";
 import { isRecord, parseJson } from "./json";
 import type { StatusRuntime } from "./runtime";
@@ -36,7 +37,7 @@ export async function fetchStatus(
 				isRecord(body.status) &&
 				typeof body.status.indicator === "string"
 			) {
-				indicator = body.status.indicator.toWellFormed();
+				indicator = toWellFormed(body.status.indicator);
 			}
 		}
 	} catch {

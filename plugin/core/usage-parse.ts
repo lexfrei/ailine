@@ -4,7 +4,7 @@ import {
 	sevenDayWindowMinutes,
 } from "./format";
 import { isRecord, parseJson } from "./json";
-import { trimSpace } from "./text";
+import { toWellFormed, trimSpace } from "./text";
 import type { QuotaData, QuotaWindow, ScopedWindow } from "./types";
 
 export type UsageParseResult =
@@ -20,7 +20,7 @@ function readRecord(value: unknown): Record<string, unknown> | undefined {
 function readString(value: unknown): string {
 	if (value === undefined || value === null) return "";
 	if (typeof value !== "string") throw new Error("Invalid usage string");
-	return value.toWellFormed();
+	return toWellFormed(value);
 }
 
 function readNumber(value: unknown): number {

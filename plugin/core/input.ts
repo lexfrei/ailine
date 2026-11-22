@@ -1,3 +1,4 @@
+import { toWellFormed } from "./text";
 import { isRecord, parseJson } from "./json";
 
 export type RepoInfo = { host: string; owner: string; name: string };
@@ -75,7 +76,7 @@ function readRecord(
 
 function readString(value: unknown, warnings: string[]): string {
 	if (value === undefined || value === null) return "";
-	if (typeof value === "string") return value.toWellFormed();
+	if (typeof value === "string") return toWellFormed(value);
 	warn(warnings);
 	return "";
 }

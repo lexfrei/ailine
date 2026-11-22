@@ -1,3 +1,4 @@
+import { toWellFormed } from "./text";
 import { isRecord, parseJson } from "./json";
 
 export type CredentialCommand = (
@@ -20,7 +21,7 @@ export function parseCredentialToken(raw: string): string | undefined {
 	const token = oauth.accessToken;
 	if (token === undefined || token === null || token === "") return undefined;
 	if (typeof token !== "string") throw new Error("parsing keychain data");
-	return token.toWellFormed();
+	return toWellFormed(token);
 }
 
 export async function readKeychain(
