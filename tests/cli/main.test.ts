@@ -154,3 +154,33 @@ test("terminal columns use a strict integer and subtract the safety margin", asy
 		(await cli([], raw, { current: minimal, columns: "12bad" })).stdout,
 	).toBe("🤖 Opus | \x1b[32m🧠 37%\x1b[0m");
 });
+
+test("unreadable stdin prints a terminated error line instead of rendering", async () => {
+	const home = await mkdtemp(join(tmpdir(), "ailine-main-test-"));
+	try {
+		const child = Bun.spawn({
+			cmd: [
+				"/bin/sh",
+				"-c",
+				'exec "$0" "$@" < "$HOME"',
+				process.execPath,
+				main,
+				...quiet,
+			],
+			cwd: home,
+			env: { PATH: "/usr/bin:/bin", HOME: home, COLUMNS: "0" },
+			stdout: "pipe",
+			stderr: "pipe",
+		});
+		const [stdout, exitCode] = await Promise.all([
+			new Response(child.stdout).text(),
+			child.exited,
+		]);
+		expect({ stdout, exitCode }).toEqual({
+			stdout: "⚠️ stdin error\n",
+			exitCode: 0,
+		});
+	} finally {
+		await rm(home, { recursive: true });
+	}
+});

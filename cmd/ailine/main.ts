@@ -81,7 +81,7 @@ export async function main(): Promise<void> {
 	try {
 		raw = decodeUtf8(new Uint8Array(await Bun.stdin.arrayBuffer()));
 	} catch {
-		process.stdout.write(part(applied.config.theme, "stdin error", "⚠️"));
+		process.stdout.write(`${part(applied.config.theme, "stdin error", "⚠️")}\n`);
 		return;
 	}
 	const parsed = parseInput(raw);
