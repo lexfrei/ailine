@@ -14,7 +14,7 @@ Strict sequential flow, each step depends on the previous one succeeding.
 ### 2. Merge
 
 - Only after green CI
-- `gh pr ready <number>` then `gh pr merge --squash --delete-branch`
+- `gh pr ready <number>` then `gh pr merge --merge --delete-branch` (merge commit, no squash: the signed branch commits land unchanged)
 
 ### 3. Tag
 
