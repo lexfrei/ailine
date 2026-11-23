@@ -378,13 +378,27 @@ export function loadConfigText(source: string | undefined): ConfigLoadResult {
 	return { config: result.config, warnings };
 }
 
+function tomlErrorText(error: unknown): string {
+	if (!(error instanceof Error)) return String(error);
+	// The parser appends a multi-line source excerpt; validate prints one line per problem.
+	const message = error.message.split("\n")[0] ?? "";
+	if (
+		"line" in error &&
+		"column" in error &&
+		typeof error.line === "number" &&
+		typeof error.column === "number"
+	)
+		return `${message} (line ${error.line}, column ${error.column})`;
+	return message;
+}
+
 export function validateConfigText(source: string | undefined): string[] {
 	if (source === undefined) return [];
 	let values: ReadonlyMap<string, unknown>;
 	try {
 		values = flatValues(source);
 	} catch (error) {
-		return [`cannot read config: ${String(error)}`];
+		return [`cannot read config: ${tomlErrorText(error)}`];
 	}
 	const problems: string[] = [];
 	for (const key of [...values.keys()].sort()) {
