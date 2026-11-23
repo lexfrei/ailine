@@ -2,5 +2,31 @@
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
     "github>lexfrei/renovate-config"
+  ],
+  "packageRules": [
+    {
+      "description": "The Go implementation was removed; nothing is built from go.mod anymore.",
+      "matchManagers": [
+        "gomod"
+      ],
+      "enabled": false
+    },
+    {
+      "description": "JavaScript packages ship inside the plugin and the CLI. Each new version needs the publisher review in docs/dependencies.md and a regenerated plugin/vendor bundle, so updates wait for approval on the dependency dashboard and never automerge.",
+      "matchManagers": [
+        "bun",
+        "npm"
+      ],
+      "dependencyDashboardApproval": true,
+      "automerge": false
+    },
+    {
+      "description": "GoReleaser packages every release; review its version together with the Bun runtime pins in tools/prepare_bun.py.",
+      "matchPackageNames": [
+        "goreleaser/goreleaser"
+      ],
+      "dependencyDashboardApproval": true,
+      "automerge": false
+    }
   ]
 }
