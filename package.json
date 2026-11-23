@@ -1,0 +1,33 @@
+{
+	"name": "ailine",
+	"private": true,
+	"type": "module",
+	"packageManager": "bun@1.4.5",
+	"scripts": {
+		"test": "bun run test:core && bun run test:cli && bun run test:host && bun run test:build",
+		"test:core": "bun test ./tests/core",
+		"test:cli": "bun test ./tests/cli",
+		"test:build": "python3 -I tests/build/prepare_bun_test.py && bun test ./tests/build",
+		"test:host": "claude plugin test ./plugin && bun tools/test-host-runtime.ts",
+		"typecheck": "bun node_modules/.bin/tsc --project tsconfig.core.json && bun node_modules/.bin/tsc --project tsconfig.cli.json",
+		"lint": "bun node_modules/.bin/biome lint plugin/core plugin/hooks cmd/ailine tools tests",
+		"build:vendor": "bun tools/build-vendor.ts"
+	},
+	"dependencies": {
+		"smol-toml": "1.9.1",
+		"string-width": "9.0.0"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "2.6.8",
+		"@types/bun": "1.4.5",
+		"typescript": "7.0.2"
+	},
+	"overrides": {
+		"ansi-regex": "6.6.0",
+		"get-east-asian-width": "1.7.0",
+		"strip-ansi": "7.2.0",
+		"bun-types": "1.4.5",
+		"@types/node": "26.6.6",
+		"undici-types": "8.9.0"
+	}
+}

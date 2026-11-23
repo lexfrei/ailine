@@ -14,80 +14,79 @@ permissions:
   contents: read
 
 jobs:
-  lint:
-    name: Lint
+  plugin:
+    name: Plugin
     runs-on: ubuntu-latest
+    env:
+      CLAUDE_CONFIG_DIR: /tmp/ailine-claude-config
+      DISABLE_TELEMETRY: "1"
+      DISABLE_AUTOUPDATER: "1"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7
-        with:
-          go-version-file: go.mod
-          cache: false
-
-      - uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9
-        with:
-          version: latest
-
-  test:
-    name: Test
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-
-      - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7
-        with:
-          go-version-file: go.mod
-          cache: false
-
-      - name: Run tests with coverage
-        run: go test -race -coverprofile=coverage.out -covermode=atomic ./...
-
-      - name: Check coverage threshold
+      - name: Install pinned Claude Code
         run: |
-          COVERAGE=$(go tool cover -func=coverage.out | grep total | awk '{print $3}' | tr -d '%')
-          echo "Total coverage: ${COVERAGE}%"
-          if [ "$(echo "${COVERAGE} < 85" | bc)" -eq 1 ]; then
-            echo "::error::Coverage ${COVERAGE}% is below 85% threshold"
-            exit 1
-          fi
+          installer_dir=$(mktemp --directory "$RUNNER_TEMP/claude-installer.XXXXXX")
+          installer="$installer_dir/install.sh"
+          curl --fail --silent --show-error --location https://claude.ai/install.sh --output "$installer"
+          printf '%s  %s\n' '2c5506d110560bf618bbe88f678f2c2a0047c86a9c6585fc84976120b1de0b44' "$installer" | sha256sum --check
+          bash "$installer" 2.1.327
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
-  build:
-    name: Build
-    needs:
-      - lint
-      - test
+      - name: Validate plugin
+        run: claude plugin validate --strict --profile directory ./plugin
+
+      - name: Prepare checksum-pinned Bun compiler
+        run: |
+          runtimes="$RUNNER_TEMP/bun-runtimes"
+          python3 -I tools/prepare_bun.py "$runtimes" --native-only
+          echo "$runtimes" >> "$GITHUB_PATH"
+
+      - name: Run plugin tests
+        run: bun run test:host
+
+  typescript:
+    name: TypeScript
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        goos:
-          - darwin
-          - linux
-        goarch:
-          - amd64
-          - arm64
+    env:
+      CLAUDE_CONFIG_DIR: /tmp/ailine-ts-claude-config
+      DISABLE_TELEMETRY: "1"
+      DISABLE_AUTOUPDATER: "1"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7
-        with:
-          go-version-file: go.mod
-          cache: false
+      - name: Prepare checksum-pinned Bun runtimes
+        run: |
+          runtimes="$RUNNER_TEMP/bun-runtimes"
+          python3 -I tools/prepare_bun.py "$runtimes"
+          echo "$runtimes" >> "$GITHUB_PATH"
+          echo "BUN_RUNTIME_DIR=$runtimes" >> "$GITHUB_ENV"
 
-      - name: Build
-        env:
-          GOOS: ${{ matrix.goos }}
-          GOARCH: ${{ matrix.goarch }}
-          CGO_ENABLED: "0"
-        run: go build -trimpath -ldflags="-s -w" -o ailine ./cmd/ailine
+      - name: Install reviewed dependencies
+        run: bun install --frozen-lockfile --ignore-scripts
+
+      - uses: goreleaser/goreleaser-action@a4f02ab5355a589de60d917a659ce617ed19b3de # v7
+        with:
+          version: v2.20.2
+          install-only: true
+
+      - name: Check types, lint, portable tests and standalone executable
+        run: |
+          bun run typecheck
+          bun run lint
+          bun run test:core
+          bun run test:cli
+          bun run test:build
+
+      - name: Rehearse all release artifacts without publishing
+        run: goreleaser release --snapshot --skip=publish
 
   release:
     name: Release
     if: startsWith(github.ref, 'refs/tags/v')
     needs:
-      - lint
-      - test
-      - build
+      - plugin
+      - typescript
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -96,13 +95,16 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7
-        with:
-          go-version-file: go.mod
+      - name: Prepare checksum-pinned Bun runtimes
+        run: |
+          runtimes="$RUNNER_TEMP/bun-runtimes"
+          python3 -I tools/prepare_bun.py "$runtimes"
+          echo "$runtimes" >> "$GITHUB_PATH"
+          echo "BUN_RUNTIME_DIR=$runtimes" >> "$GITHUB_ENV"
 
       - uses: goreleaser/goreleaser-action@a4f02ab5355a589de60d917a659ce617ed19b3de # v7
         with:
-          version: latest
+          version: v2.20.2
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

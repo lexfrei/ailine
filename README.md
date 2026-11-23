@@ -1,7 +1,6 @@
 # ailine
 
 [![CI](https://github.com/lexfrei/ailine/actions/workflows/ci.yaml/badge.svg)](https://github.com/lexfrei/ailine/actions/workflows/ci.yaml)
-[![Go](https://img.shields.io/github/go-mod/go-version/lexfrei/ailine)](https://go.dev/)
 [![License](https://img.shields.io/github/license/lexfrei/ailine)](LICENSE)
 
 Real-time statusline for [Claude Code](https://docs.anthropic.com/en/docs/claude-code) showing live quota usage directly from stdin data.
@@ -34,9 +33,9 @@ This project used to be called claudeline. Upgrading through Homebrew or `apt up
 
 ### Model indicators
 
-  - effort `low` → `⬇️`, `medium` → no indicator, `high` → `⬆️`, `xhigh` → `⏫`, `max` → `🚀`
-  - thinking enabled → `💭`
-  - fast mode → `⚡`
+- effort `low` → `⬇️`, `medium` → no indicator, `high` → `⬆️`, `xhigh` → `⏫`, `max` → `🚀`
+- thinking enabled → `💭`
+- fast mode → `⚡`
 
 ### Prompt cache
 
@@ -69,8 +68,8 @@ Requires Claude Code v2.1.251 for the cache state and v2.1.260 for the cause. On
 
 The icon style is selectable with `theme` in config or `--theme` on the CLI:
 
-  - `emoji` (default) — the rendering shown above.
-  - `text` — drops every emoji icon. Where an emoji encoded status by color (the `🟢/🟡/🟠/🔴` rate circles, the context meter, a changes-requested PR, and platform-status severity — `⚠️` minor → yellow, `🔶` major → orange, `🔴` critical → red), that color is carried onto the segment's text instead. Identifying emoji (`🤖`, `🐙`, `📝`) are removed, since the text already names the segment. The prompt cache segment is the exception: its text is a bare cause word, so it names itself under this theme and renders as `cache: tools` rather than `tools`.
+- `emoji` (default) — the rendering shown above.
+- `text` — drops every emoji icon. Where an emoji encoded status by color (the `🟢/🟡/🟠/🔴` rate circles, the context meter, a changes-requested PR, and platform-status severity — `⚠️` minor → yellow, `🔶` major → orange, `🔴` critical → red), that color is carried onto the segment's text instead. Identifying emoji (`🤖`, `🐙`, `📝`) are removed, since the text already names the segment. The prompt cache segment is the exception: its text is a bare cause word, so it names itself under this theme and renders as `cache: tools` rather than `tools`.
 
 Two kinds of state have no text form and are unavailable in this theme: the model's effort / thinking / fast-mode markers (`⏫`/`💭`/`⚡`) disappear entirely, and every PR review state except changes-requested (which survives as red) collapses to a plain `#N` (or `!N` for a merge request).
 
@@ -88,14 +87,16 @@ A small safety margin (2 cells) is subtracted from `$COLUMNS` as a buffer: the t
 
 When `$COLUMNS` is unset (older Claude Code, non-terminal hosts), output stays on a single line — current behavior is preserved.
 
+The TypeScript renderer measures emoji presentation sequences as graphemes. For example, `⬆️` and `⬇️` occupy two cells rather than the one cell counted by the former Go width library. Rows near a wrapping boundary can therefore wrap earlier.
+
 ### Repo segment
 
 Renders when Claude Code reports `workspace.repo` (a git remote pointing at a known host):
 
-  - `🐙` github.com, `🦊` gitlab.com, `🪣` bitbucket.org, `📦` other hosts (with `host/` prefix)
-  - review state followed by `#N`, or `!N` when Claude Code reports the change as a GitLab merge request: `📝` draft, `👀` pending, `💬` commented, `🔴` changes requested, `✅` approved
-  - `🌳 worktree` — directory name of the linked worktree, shown only when `cwd` is a linked worktree (in the main clone it would just duplicate the repo name, so it is omitted)
-  - `🌿 branch` — current branch read directly from `cwd/.git/HEAD`; when HEAD is detached or unreadable it falls back to the worktree name from stdin, but only if the `🌳` marker is not already shown (so the same name is never printed twice)
+- `🐙` github.com, `🦊` gitlab.com, `🪣` bitbucket.org, `📦` other hosts (with `host/` prefix)
+- review state followed by `#N`, or `!N` when Claude Code reports the change as a GitLab merge request: `📝` draft, `👀` pending, `💬` commented, `🔴` changes requested, `✅` approved
+- `🌳 worktree` — directory name of the linked worktree, shown only when `cwd` is a linked worktree (in the main clone it would just duplicate the repo name, so it is omitted)
+- `🌿 branch` — current branch read directly from `cwd/.git/HEAD`; when HEAD is detached or unreadable it falls back to the worktree name from stdin, but only if the `🌳` marker is not already shown (so the same name is never printed twice)
 
 When no `workspace.repo` is present (non-git directory), the segment falls back to the bare `🌳 worktree 🌿 branch` form showing the same sources.
 
@@ -119,6 +120,8 @@ The cost segment has three modes:
 Set via `--cost auto|true|false` or `cost = "auto"` in config.
 
 ## Requirements
+
+Release executables include Bun and need no separately installed JavaScript runtime. Supported platforms are macOS 13+ and Linux on amd64/arm64. The amd64 builds require SSE4.2. Linux glibc builds require libc 2.17 or later; separate musl archives require `libgcc` and `libstdc++` on Alpine. These executables are larger than the former Go binaries.
 
 - Claude Code v2.1.82+ (provides `rate_limits` in statusline stdin)
 - Claude Code v2.1.97+ recommended (adds `workspace.git_worktree` and `refreshInterval`)
@@ -163,9 +166,7 @@ mise use -g aqua:lexfrei/ailine
 
 ### From source
 
-```bash
-go install github.com/lexfrei/ailine/cmd/ailine@latest
-```
+The application is implemented in TypeScript. `go install` is no longer the build path. See [building and testing](docs/build.md) for the pinned compiler, standalone executables, and release packaging.
 
 ## Usage
 
@@ -201,6 +202,12 @@ Set `refreshInterval` in `~/.claude/settings.json` to also re-run the command on
   }
 }
 ```
+
+### Experimental native plugin
+
+An optional [Claude Code plugin](plugin/README.md) uses the shared TypeScript renderer in a native band above the prompt and refreshes while idle. It uses the existing TOML config and needs no executable, Bun or Node on PATH. The session API lacks prompt-cache state, model-mode indicators, and PR/review data; colors and terminal hyperlinks are unavailable. Keep the command integration above for full functionality.
+
+From a checkout, try it with `claude --plugin-dir ./plugin`. The plugin does not change an existing `statusLine` setting.
 
 ## Configuration
 
