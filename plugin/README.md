@@ -53,7 +53,7 @@ When the platform-status segment is enabled, the plugin makes a cached unauthent
 
 The host HTTP API has no per-request cancellation signal. The plugin limits how long rendering waits, permits only one outstanding request per endpoint, and discards late responses. A timed-out underlying request may remain pending until the host completes it; the next refresh does not start a duplicate.
 
-`mac_insecure = true` explicitly enables reading Claude Code's OAuth credentials from the macOS Keychain through `/usr/bin/security` and sending an authenticated request to `https://api.anthropic.com/api/oauth/usage`. This is the only subprocess path. Leave it off to use only quota windows supplied by Claude Code. Do not enable it merely to install the plugin.
+`mac_insecure = true` explicitly enables reading Claude Code's OAuth credentials from the macOS Keychain through `/usr/bin/security` and sending an authenticated request to `https://api.anthropic.com/api/oauth/usage`. This is the only subprocess path. Leave it off to use only quota windows supplied by Claude Code. Do not enable it merely to install the plugin. With the plugin and the `statusLine.command` both enabled, each keeps its own cache and makes its own usage requests, which doubles the load on that rate-limited endpoint.
 
 ## Publication status
 

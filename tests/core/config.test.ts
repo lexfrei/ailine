@@ -248,6 +248,11 @@ test("validate rejects malformed TOML instead of silently accepting defaults", (
 	const problems = validateConfigText("theme = [");
 	expect(problems).toHaveLength(1);
 	expect(problems[0]).toContain("cannot read config:");
+	expect(problems[0]).not.toContain("\n");
+	expect(problems[0]).toBe(
+		"cannot read config: Invalid TOML document: unfinished array (line 1, column 9)",
+	);
+	expect(validateConfigText("a = 1\nb = [")[0]).toContain("(line 2, column 5)");
 });
 
 test("unsafe TOML keys cannot modify default objects", () => {

@@ -43,6 +43,15 @@ test("vendor artifacts are readable, typed, licensed and independent of npm at r
 			9007199254740993n,
 		);
 		expect(runtime.measureWidth("📦 café界")).toBe(9);
+		for (const name of [
+			"runtime.js",
+			"runtime.d.ts",
+			"THIRD_PARTY_NOTICES.txt",
+		])
+			expect(
+				await readFile(join(output, name), "utf8"),
+				`${name} is stale; run bun run build:vendor`,
+			).toBe(await readFile(join(projectRoot, "plugin/vendor", name), "utf8"));
 	} finally {
 		await rm(output, { recursive: true });
 	}
